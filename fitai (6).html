@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fitai App - Ultimate AI</title>
+  
+  <link rel="icon" type="image/png" href="https://i.ibb.co/fzRrLJc0/logo.png" sizes="192x192">
+  <link rel="icon" type="image/png" href="https://i.ibb.co/fzRrLJc0/logo.png" sizes="512x512">
+  <link rel="apple-touch-icon" href="https://i.ibb.co/fzRrLJc0/logo.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
+  
+  <style>
+    body { background-color: #000; color: #fff; margin: 0; padding: 0; overscroll-behavior-y: none; }
+    ::-webkit-scrollbar { display: none; }
+    input[type=range] { -webkit-appearance: none; background: transparent; }
+    input[type=range]::-webkit-slider-thumb { 
+      -webkit-appearance: none; height: 28px; width: 28px; border-radius: 50%; 
+      background: currentColor; cursor: pointer; margin-top: -10px; 
+      box-shadow: 0 0 15px currentColor; 
+    }
+    input[type=range]::-webkit-slider-runnable-track { 
+      width: 100%; height: 8px; cursor: pointer; background: #27272a; border-radius: 4px; 
+    }
+  </style>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+    // =========================================================================
+    // הגדרת מפתח ה-API פעם אחת בלבד (המשתמשים לא יצטרכו להכניס מפתח)
+    // =========================================================================
+    const GEMINI_API_KEY = "הכנס_את_המפתח_שלך_כאן"; 
+    // =========================================================================
+
+    // ─────────────────────────────────────────
+    // CUSTOM HOOK (STABILIZED)
+    // ─────────────────────────────────────────
+    function useLocalStorage(key, initialValue) {
+      const [storedValue, setStoredValue] = useState(() => {
+        try {
+          const item = window.localStorage.getItem(key);
+          return item ? JSON.parse(item) : initialValue;
+        } catch (error) { return initialValue; }
+      });
+      const setValue = useCallback(value => {
+        try {
+          setStoredValue(prev => {
+            const valueToStore = value instanceof Function ? value(prev) : value;
+            window.localStorage.setItem(key, JSON.stringify(valueToStore));
+            return valueToStore;
+          });
+        } catch (error) { console.error("Storage Error:", error); }
+      }, [key]);
+      return [storedValue, setValue];
+    }
+
+    // ─────────────────────────────────────────
+    // THEME GENERATOR
+    // ─────────────────────────────────────────
+    const getTheme = (style) => {
+      if (style === 'חדר כושר (משקולות)') {
+        return {
+          primaryName: 'blue', textPrimary: 'text-blue-500', textPrimaryLight: 'text-blue-400',
+          bgPrimary: 'bg-blue-500', bgPrimary600: 'bg-blue-600', bgPrimary10: 'bg-blue-500/10', bgPrimary20: 'bg-blue-500/20',
+          borderPrimary: 'border-blue-500', borderPrimary20: 'border-blue-500/20', borderPrimary30: 'border-blue-500/30', borderPrimary40: 'border-blue-500/40', borderPrimary50: 'border-blue-500/50',
+          gradientBg: 'bg-gradient-to-r from-blue-500 to-indigo-600',
+          shadowPrimary: 'shadow-blue-500/20', shadowPrimary30: 'shadow-blue-500/30', shadowPrimary40: 'shadow-blue-500/40',
+          emoji: '⚡', hex: '#3b82f6'
+        };
+      } else if (style === 'שילוב (גם וגם)') {
+        return {
+          primaryName: 'purple', textPrimary: 'text-purple-500', textPrimaryLight: 'text-purple-400',
+          bgPrimary: 'bg-purple-500', bgPrimary600: 'bg-purple-600', bgPrimary10: 'bg-purple-500/10', bgPrimary20: 'bg-purple-500/20',
+          borderPrimary: 'border-purple-500', borderPrimary20: 'border-purple-500/20', borderPrimary30: 'border-purple-500/30', borderPrimary40: 'border-purple-500/40', borderPrimary50: 'border-purple-500/50',
+          gradientBg: 'bg-gradient-to-r from-purple-500 to-pink-600',
+          shadowPrimary: 'shadow-purple-500/20', shadowPrimary30: 'shadow-purple-500/30', shadowPrimary40: 'shadow-purple-500/40',
+          emoji: '🧬', hex: '#a855f7'
+        };
+      } else { 
+        return {
+          primaryName: 'orange', textPrimary: 'text-orange-500', textPrimaryLight: 'text-orange-400',
+          bgPrimary: 'bg-orange-500', bgPrimary600: 'bg-orange-600', bgPrimary10: 'bg-orange-500/10', bgPrimary20: 'bg-orange-500/20',
+          borderPrimary: 'border-orange-500', borderPrimary20: 'border-orange-500/20', borderPrimary30: 'border-orange-500/30', borderPrimary40: 'border-orange-500/40', borderPrimary50: 'border-orange-500/50',
+          gradientBg: 'bg-gradient-to-r from-orange-500 to-red-600',
+          shadowPrimary: 'shadow-orange-500/20', shadowPrimary30: 'shadow-orange-500/30', shadowPrimary40: 'shadow-orange-500/40',
+          emoji: '🔥', hex: '#f97316'
+        };
+      }
+    };
+
+    const Check = ({ className }) => ( <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"></polyline></svg> );
+    const Lock = ({ className }) => ( <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> );
+
+    const MuscleMan = ({ target, th }) => {
+      const isPush = target === 'push'; const isPull = target === 'pull';
+      const isCore = target === 'core'; const isLegs = target === 'legs';
+      const activeColor = th.hex;
+      return (
+        <svg viewBox="0 0 100 140" className="w-28 h-28 mx-auto drop-shadow-2xl mb-4">
+          <circle cx="50" cy="15" r="10" fill="#3f3f46" />
+          <path d="M 45 25 L 55 25 L 60 35 L 40 35 Z" fill={isPush || isPull ? activeColor : '#3f3f46'} />
+          <path d="M 30 35 Q 50 25 70 35 L 85 75 L 75 80 L 65 45 L 35 45 L 25 80 L 15 75 Z" fill={isPush || isPull ? activeColor : '#3f3f46'} />
+          <rect x="38" y="55" width="24" height="30" rx="4" fill={isCore ? activeColor : '#3f3f46'} />
+          <path d="M 38 88 L 48 88 L 46 135 L 38 135 Z" fill={isLegs ? activeColor : '#3f3f46'} />
+          <path d="M 52 88 L 62 88 L 62 135 L 54 135 Z" fill={isLegs ? activeColor : '#3f3f46'} />
+        </svg>
+      );
+    };
+
+    // ─────────────────────────────────────────
+    // AI COACH GEOMETRY ENGINE (VISION)
+    // ─────────────────────────────────────────
+    const calculateAngle = (a, b, c) => {
+      const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+      let angle = Math.abs((radians * 180.0) / Math.PI);
+      if (angle > 180.0) angle = 360 - angle;
+      return angle;
+    };
+
+    function AiCoach({ currentExerciseName, th }) {
+      const videoRef = useRef(null);
+      const canvasRef = useRef(null);
+      const lastSpokenTime = useRef(0);
+      const lowestAngle = useRef(180);
+
+      const speakFeedback = (text) => {
+        const now = new Date().getTime();
+        if (now - lastSpokenTime.current > 3000) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'he-IL';
+          window.speechSynthesis.speak(utterance);
+          lastSpokenTime.current = now;
+        }
+      };
+
+      useEffect(() => {
+        if (!videoRef.current || !canvasRef.current) return;
+        
+        const videoElement = videoRef.current;
+        const canvasElement = canvasRef.current;
+        const canvasCtx = canvasElement.getContext('2d');
+
+        const pose = new window.Pose({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+        });
+
+        pose.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+
+        pose.onResults((results) => {
+          if (!canvasElement) return;
+          canvasCtx.save();
+          canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+          
+          if (results.poseLandmarks) {
+            window.drawConnectors(canvasCtx, results.poseLandmarks, window.POSE_CONNECTIONS, { color: th.hex, lineWidth: 3 });
+            window.drawLandmarks(canvasCtx, results.poseLandmarks, { color: '#ffffff', lineWidth: 1, radius: 2 });
+
+            const marks = results.poseLandmarks;
+            const exName = currentExerciseName || '';
+
+            if (exName.includes('סקוואט')) {
+               const hip = marks[23] || marks[24];
+               const knee = marks[25] || marks[26];
+               const ankle = marks[27] || marks[28];
+               
+               if (hip && knee && ankle) {
+                 const angle = calculateAngle(hip, knee, ankle);
+                 if (angle < lowestAngle.current) lowestAngle.current = angle;
+                 if (angle > lowestAngle.current + 15) {
+                    if (lowestAngle.current > 100) {
+                        speakFeedback("לא ירדת מספיק! תשבור מקביל!");
+                    }
+                    lowestAngle.current = 180;
+                 }
+               }
+            }
+            else if (exName.includes('שכיבות סמיכה')) {
+               const shoulder = marks[11] || marks[12];
+               const elbow = marks[13] || marks[14];
+               const wrist = marks[15] || marks[16];
+               
+               if (shoulder && elbow && wrist) {
+                 const angle = calculateAngle(shoulder, elbow, wrist);
+                 if (angle < lowestAngle.current) lowestAngle.current = angle;
+                 if (angle > lowestAngle.current + 15) {
+                    if (lowestAngle.current > 110) {
+                        speakFeedback("תרד עד שהחזה נוגע ברצפה!");
+                    }
+                    lowestAngle.current = 180;
+                 }
+               }
+            }
+          }
+          canvasCtx.restore();
+        });
+
+        const camera = new window.Camera(videoElement, {
+          onFrame: async () => { await pose.send({ image: videoElement }); },
+          width: 640, height: 480,
+        });
+        camera.start();
+
+        return () => {
+          camera.stop();
+          pose.close();
+        };
+      }, [currentExerciseName, th]);
+
+      return (
+        <div className={`relative w-full aspect-[4/3] bg-zinc-950 rounded-2xl overflow-hidden border-2 mt-4 shadow-lg`} style={{borderColor: th.hex}}>
+           {/* תגיות ה-autoPlay וה-muted קריטיות כדי שהמצלמה תעבוד במובייל! */}
+           <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover opacity-30" autoPlay playsInline muted></video>
+           <canvas ref={canvasRef} width="640" height="480" className="absolute inset-0 w-full h-full object-cover transform -scale-x-100"></canvas>
+           <div className={`absolute top-2 right-2 bg-black/80 px-3 py-1 rounded-full text-xs font-bold animate-pulse flex items-center gap-2 border`} style={{borderColor: th.hex, color: th.hex}}>
+             <span className="w-2 h-2 rounded-full bg-current"></span> עין ה-AI פעילה
+           </div>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────
+    // DATA & QUESTIONS
+    // ─────────────────────────────────────────
+    const DAYS_HE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+    const QUESTIONS = [
+      { id:'style',    type:'choice', q:'מה סגנון האימון המועדף עליך?',   options:['קליסטניקס (משקל גוף)', 'חדר כושר (משקולות)', 'שילוב (גם וגם)'] },
+      { id:'location', type:'choice', q:'איפה תתאמן?',                  options:['חדר כושר','פארק קליסטניקס','בבית','סטודיו'] },
+      { id:'name',     type:'text',   q:'מה השם הפרטי שלך?',           placeholder:'הכנס שם...' },
+      { id:'age',      type:'slider', q:'בן כמה אתה?',                  min:10, max:80, step:1, default:25 },
+      { id:'height',   type:'slider', q:'מה הגובה שלך? (ס"מ)',          min:140, max:220, step:1, default:170 },
+      { id:'weight',   type:'slider', q:'מה המשקל שלך? (ק"ג)',          min:20, max:150, step:1, default:70 },
+      { id:'gender',   type:'choice', q:'מה המגדר שלך?',                 options:['זכר','נקבה','אחר'] },
+      { id:'goal',     type:'choice', q:'מה המטרה העיקרית שלך?',        options:['ירידה באחוזי שומן (חיטוב)','בניית מסת שריר וכוח'] },
+      { id:'days',     type:'multi',  q:'באילו ימים תתאמן?',            options:DAYS_HE },
+      { id:'equip',    type:'multi',  q:'איזה ציוד זמין לך?',           options:['מוט מתח','מקבילים','טבעות','משקולות','גומיות','ללא ציוד'] },
+      { id:'pushups',  type:'choice', q:'כמה שכיבות סמיכה ברצף?',      options:['0-5','6-15','16-30','30+'] },
+      { id:'pullups',  type:'choice', q:'כמה עליות מתח ברצף?',          options:['0','1-4','5-10','10+'] },
+      { id:'situps',   type:'choice', q:'כמה כפיפות בטן ברצף?',         options:['0-15','16-30','31-50','50+'] },
+      { id:'plank',    type:'choice', q:'כמה זמן פלאנק אתה מחזיק?',     options:['פחות מדקה','1-2 דקות','2-3 דקות','3 דקות ומעלה'] },
+      { id:'squats',   type:'choice', q:'מה רמת כוח הרגליים (סקוואט)?', options:['0-20','21-50','51-100','מצליח פיסטול (רגל אחת)'] },
+      { id:'allergies',type:'multi',  q:'האם יש לך אלרגיות?',           options:['ללא','בוטנים','אגוזים','גלוטן','לקטוז','ביצים','דגים','סויה'] },
+      { id:'dislikes', type:'text',   q:'יש מאכלים שאתה לא אוהב?',      placeholder:'לדוגמה: עגבניה, טונה... (השאר ריק אם אין)' },
+      { id:'injuries', type:'multi',  q:'מגבלות או פציעות?',            options:['ללא פציעות','כאבי גב','כתפיים','ברכיים','שורש כף יד'] }
+    ];
+
+    const CALI_MATRIX = [
+      ["שכיבות סמיכה קיר", "פלאנק ברכיים", "חצי סקוואט (כיסא)", "היתלות מתח אקטיבית", "שכיבות סמיכה פייק", "כפיפות בטן חצויות", "גשר אגן", "חתירה טבעות (גבוהה)", "פלאנק סטטי קצר"],
+      ["שכיבות סמיכה ברכיים", "פלאנק קלאסי", "סקוואט חופשי", "מתח שלילי", "החזקת מקבילים", "כפיפות בטן מלאות", "הרמות תאומים", "חתירה טבעות (נמוכה)", "זחילת ספיידרמן"],
+      ["שכיבות סמיכה מלאות", "הרמות רגליים רצפה", "לאנג'ים קדימה", "צ'ין אפ (אחיזה הפוכה)", "מקבילים נעזר רגליים", "וישרים עם ברכיים", "קפיצות צפרדע", "מתח אחיזה צרה", "L-sit נתמך"],
+      ["שכיבות סמיכה יהלום", "V-ups", "סקוואט קפיצה", "מתח קלאסי", "מקבילים (Dips)", "טוויסט רוסי באוויר", "גשר אגן רגל אחת", "מתח רחב", "L-sit רצפה"],
+      ["שכיבות סמיכה רחב", "Toes to Bar (מתח)", "לאנג'ים קופצים", "מתח לחזה (High Pull)", "שכיבות עמידת ידיים (קיר)", "Hollow Body סטטי", "סקוואט בולגרי", "מתח צד לצד", "Tuck Planche"],
+      ["שכיבות סמיכה מתפרץ", "דרגון פלאג מקופל", "סקוואט רגל אחת קופסה", "מתח L-sit", "מקבילים בולגריים", "וישרים רגליים ישרות", "נורדיק קרל שלילי", "חתירה רגל אחת", "Advanced Tuck Planche"],
+      ["שכיבות סמיכה ארצ'ר", "דרגון פלאג רגל אחת", "פיסטול סקוואט נתמך", "מאסל אפ גומייה", "הליכת קיר עמידת ידיים", "הרמות רגליים 360", "סקוואט בולגרי קפיצה", "פרונט ליבר מקופל", "פלאנץ' פישוק (Straddle)"],
+      ["שכיבות סמיכה יד אחת עזר", "דרגון פלאג מלא", "פיסטול סקוואט רדוד", "מאסל אפ נקי", "עמידת ידיים חופשית", "דגל אנושי מקופל", "GHR חלקי", "מתח ארצ'ר", "פלאנץ' חצי מלא (Half)"],
+      ["שכיבות סמיכה יד אחת נקי", "פרונט ליבר רגל אחת", "פיסטול סקוואט עמוק", "מתח יד אחת עזר", "שכיבות עמידת ידיים נקי", "דגל אנושי פישוק", "נורדיק קרל נקי", "מתח מתפרץ במיוחד", "פלאנץ' מלא (Full Planche)!"],
+      ["פלאנץ' שכיבות סמיכה", "פרונט ליבר מלא", "שרימפ סקוואט מלא", "מתח יד אחת נקי!", "מקבילים עמידת ידיים", "דגל אנושי נקי (Full)", "GHR הרמות מלא", "עליות כוח טבעות", "מאסטר פלאנץ' מתפרץ"]
+    ];
+
+    const GYM_MATRIX = [
+      ["לחיצת חזה משקולות", "פלאנק סטטי", "לחיצת רגליים מכונה", "פולי עליון קל", "לחיצת כתפיים משקולות", "כפיפות בטן במזרן", "פשיטת ברכיים מכונה", "חתירה בישיבה מכונה", "פשיטת גב ספסל"],
+      ["לחיצת חזה מוט ריק", "כפיפות בטן שיפוע", "סקוואט גובלט", "פולי עליון בינוני", "לחיצת כתפיים מוט ריק", "רוטציה בכבל קל", "כפיפת ברכיים מכונה", "חתירה פולי תחתון", "נשיאת מזוודה משקולת"],
+      ["לחיצת חזה קלה", "הרמות רגליים תלויות", "סקוואט ברבל מוט ריק", "מתח משקל גוף", "לחיצת כתפיים מכונה", "אימון בטן TRX", "דדליפט רומני קל", "חתירה משקולות יד ספסל", "פלאנק עם פלטה"],
+      ["לחיצת חזה שיפוע עליון", "טוויסט רוסי פלטה", "סקוואט ברבל חצי מ\"ג", "פולי עליון כבד", "לחיצת ארנולד חופשי", "Woodchoppers כבל", "היפ טראסט קל", "חתירה טי-באר", "פשיטת גב משקולת"],
+      ["לחיצת חזה כבדה", "Ab Rollout רגיל", "סקוואט ברבל כבד", "מתח עם משקל קל", "לחיצת כתפיים עמידה (OHP)", "Side Bends", "דדליפט קלאסי קל", "חתירה פנדליי מוט", "החזקת פלטות כבדה"],
+      ["לחיצת חזה מ\"ג מלא!", "כפיפות בטן שיפוע שלילי", "לחיצת רגליים פול-סטאק", "פולי עליון פול-סטאק", "דחיקת כתפיים (Push Press)", "הרמות רגליים משקולת", "דדליפט רומני כבד", "פולאובר כבל", "Ab Rollout עמידה"],
+      ["לחיצת חזה אחיזה צרה", "L-sit נתמך במכון", "סקוואט מ\"ג מלא!", "מתח עם 10 קילו", "OHP חצי מ\"ג", "פלאנק עם 20 קילו", "היפ טראסט כבד מאוד", "חתירה יד אחת חופשי כבד", "נשיאת איכר כבד (Farmer)"],
+      ["לחיצת חזה 1.2 מ\"ג", "פלאנק 40 קילו", "פרונט סקוואט", "מתח עם 20 קילו", "לחיצת כתפיים עמידה כבד", "טוויסט רוסי כבד באוויר", "דדליפט קלאסי מ\"ג מלא!", "חתירה מוט אולימפי משקל גוף", "דדליפט מזוודה צדדי"],
+      ["לחיצת חזה 1.5 מ\"ג", "דרגון פלאג רצפה", "סקוואט 1.5 מ\"ג", "מתח יד אחת פולי", "OHP בישיבה משקל גוף", "דגל אנושי ממכשיר", "דדליפט 1.5 מ\"ג", "חתירה טי-באר ענקית", "פשיטת גב רגל אחת"],
+      ["לחיצת חזה כפולה (2.0)!", "פרונט ליבר מתח", "סקוואט כפול מ\"ג (2.0)!", "מאסל אפ נקי במכון", "OHP עמידה משקל גוף", "כפיפות בטן 40 קילו", "דדליפט כפול מ\"ג (2.0)!", "חתירה משקולת 60 קילו", "נשיאת יוק (Yoke) מפלצתי"]
+    ];
+
+    const TARGETS = ['push','core','legs','pull','push','core','legs','pull','core'];
+
+    const getDetailedDesc = (name) => {
+       if (name.includes('שכיבות סמיכה')) return "1. מקם ידיים ברוחב כתפיים.\n2. שמור על גוף ישר כמו קרש, כווץ ישבן ובטן.\n3. רד עד שהחזה כמעט נוגע ברצפה.\n4. דחוף בעוצמה למעלה עד נעילת מרפקים.";
+       if (name.includes('מתח')) return "1. תלה מהמוט במצב 'דד האנג' (Dead Hang).\n2. משוך את השכמות למטה ואחורה.\n3. משוך עד שהסנטר עוקף את המוט.\n4. רד בשליטה מלאה חזרה למטה.";
+       if (name.includes('סקוואט')) return "1. עמוד ברוחב כתפיים, כפות רגליים החוצה.\n2. דחוף אגן לאחור (כמו ישיבה על כיסא).\n3. רד לפחות עד שבירת מקביל.\n4. דחוף דרך העקבים חזרה לעמידה.";
+       if (name.includes('מקבילים') || name.includes('Dips')) return "1. אחוז במקבילים ודחוף כתפיים מהאוזניים.\n2. רד בשליטה עד שהכתף מתחת למרפק.\n3. דחוף חזרה למעלה באגרסיביות.";
+       if (name.includes('פלאנק')) return "1. הישען על האמות מתחת לכתפיים.\n2. כווץ בטן חזק ואל תיתן לגב לצנוח.\n3. נשום רגיל תוך כדי כיווץ רציף.";
+       if (name.includes('דדליפט')) return "1. מוט חוצה את מרכז כף הרגל.\n2. אגן אחורה, גב ישר לגמרי.\n3. דחוף את הרצפה עם הרגליים והזדקף.";
+       return "1. שמור על מנח יציב.\n2. רד בשליטה (אקסצנטרי) ל-2 שניות.\n3. עלה בעוצמה.\n4. הוצא אוויר במאמץ.";
+    };
+
+    // ─────────────────────────────────────────
+    // SHIFTING MATRIX ALGORITHM
+    // ─────────────────────────────────────────
+    const generatePersonalizedTiers = (baseMatrix, typeName, answers) => {
+      let pushO=0, pullO=0, coreO=0, legsO=0;
+      if(answers.pushups === '30+') pushO=6; else if(answers.pushups === '16-30') pushO=4; else if(answers.pushups === '6-15') pushO=2;
+      if(answers.pullups === '10+') pullO=7; else if(answers.pullups === '5-10') pullO=4; else if(answers.pullups === '1-4') pullO=2;
+      let sO=0; if(answers.situps==='50+') sO=6; else if(answers.situps==='31-50') sO=4; else if(answers.situps==='16-30') sO=2;
+      let pO=0; if(answers.plank==='3 דקות ומעלה') pO=6; else if(answers.plank==='2-3 דקות') pO=4; else if(answers.plank==='1-2 דקות') pO=2;
+      coreO = Math.max(sO, pO);
+      if(answers.squats==='מצליח פיסטול (רגל אחת)') legsO=8; else if(answers.squats==='51-100') legsO=6; else if(answers.squats==='21-50') legsO=4;
+
+      const offsets = { push: pushO, pull: pullO, core: coreO, legs: legsO };
+      const age = parseInt(answers.age) || 25;
+      const weight = parseInt(answers.weight) || 70;
+      const height = parseInt(answers.height) || 170;
+      const bmi = weight / Math.pow(height/100, 2);
+
+      const tiers = [];
+      const TIER_COUNT = 6; 
+      for (let i = 0; i < TIER_COUNT; i++) {
+        const skills = [];
+        for (let j = 0; j < 9; j++) {
+          const target = TARGETS[j];
+          let row = i + offsets[target];
+          if (row >= baseMatrix.length) row = baseMatrix.length - 1;
+
+          let exName = baseMatrix[row][j];
+          if (parseFloat(bmi) > 26 || age > 45) {
+             exName = exName.replace('קפיצה', 'מבוקרת').replace('מתפרץ', 'איטי').replace("פלאנץ'", "סטטי");
+          }
+
+          let wFactor = 0;
+          if (typeName === 'gym') {
+             wFactor = 0.2 + (row * 0.15);
+             if (target === 'legs' || exName.includes('דדליפט')) wFactor += 0.3;
+          }
+          skills.push({ id: `${typeName}_${i}_${j}`, name: exName, desc: getDetailedDesc(exName), target: target, wFactor: wFactor, level: i+1 });
+        }
+
+        const pushSk = skills.find(s=>s.target==='push') || skills[0];
+        const pullSk = skills.find(s=>s.target==='pull') || skills[0];
+        const coreSk = skills.find(s=>s.target==='core') || skills[0];
+
+        let repsPush = Math.max(4, 15 - (i + offsets.push) * 2);
+        let repsPull = Math.max(2, 10 - (i + offsets.pull));
+
+        let testDesc = "";
+        if (i === TIER_COUNT - 1) {
+            testDesc = `🏆 מבחן מאסטר סופי! הוכח שאתה אגדה ב-${pushSk.name} וב-${pullSk.name}!`;
+        } else if (typeName === 'gym') {
+            testDesc = `⚡ מבחן מעבר (לרמה ${i+2}): בצע 3 סטים של ${repsPush} חזרות ב-${pushSk.name}, ואז ${repsPull} חזרות ב-${pullSk.name}.`;
+        } else {
+            testDesc = `🔥 מבחן סיבולת (לרמה ${i+2}): בצע ${repsPush} חזרות של ${pushSk.name}, ואז ${repsPull} חזרות ב-${pullSk.name}, וסיים במקסימום ${coreSk.name}.`;
+        }
+
+        tiers.push({ level: i + 1, name: `רמה ${i + 1}`, testDesc, skills });
+      }
+      return tiers;
+    };
+
+    const calcTDEE = (w, h, a, gender, goal) => {
+      let W = parseFloat(w) || 70; let H = parseFloat(h) || 175; let A = parseFloat(a) || 25;
+      if(H < 3) H = H * 100; if(W > 250) W = 70; 
+      const bmr = gender === 'נקבה' ? (10 * W) + (6.25 * H) - (5 * A) - 161 : (10 * W) + (6.25 * H) - (5 * A) + 5;
+      const baseTdee = Math.round(bmr * 1.375);
+      if (A < 16) return Math.min(2400, Math.max(1500, baseTdee));
+      let target = goal?.indexOf('ירידה') >= 0 ? baseTdee - 300 : baseTdee + 300;
+      return Math.min(3500, Math.max(1200, target));
+    };
+
+    const getDynamicMeals = (tdee, mood) => {
+       const p = {
+         training: {
+           morning: [
+             {name: 'בוקר חביתת כוח', tags:['lactose'], multi: 0.25, ings: (t) => `${Math.max(1, Math.round(t/1000))} פרוסות לחם מלא, חביתה מ-${Math.max(2, Math.round(t/700))} ביצים, ${Math.round(t/30)} גרם גבינה לבנה 5% וירקות.`, recipe: "1. טרוף את הביצים במחבת שחוממה עם כפית שמן.\n2. מרח את הגבינה בשכבה דקה על הלחם.\n3. קצוץ ירקות טריים והגש הכל יחד להתחלת יום חזקה."},
+             {name: 'קערת שיבולת שועל', tags:['lactose','nuts'], multi: 0.28, ings: (t) => `${Math.round(t*0.1)} גרם יוגורט טבעי, ${Math.round(t*0.025)} כפות שיבולת שועל, וכפית חמאת בוטנים.`, recipe: "1. ערבב את שיבולת השועל עם מעט מים חמים או יוגורט.\n2. תן לזה לשבת 5 דקות לספיגה.\n3. זלף את חמאת הבוטנים מעל."},
+             {name: 'פנקייק חלבון מהיר', tags:['egg'], multi: 0.25, ings: (t) => `${Math.max(1, Math.round(t/1000))} בננה מעוכה, ${Math.max(2, Math.round(t/700))} ביצים, ו-2 כפות שיבולת שועל דקה.`, recipe: "1. מעך את הבננה בקערה.\n2. הוסף ביצים ושיבולת שועל וערבב לבלילה אחידה.\n3. טגן במחבת טפלון כמו פנקייקים קטנים."}
+           ],
+           lunch: [
+             {name: 'ארוחת ברזל: עוף ואורז', tags:[], multi: 0.40, ings: (t) => `${Math.round(t*0.08)} גרם חזה עוף/טופו מבושל, ${Math.round(t*0.07)} גרם אורז מלא, סלט גדול.`, recipe: "1. צלה את חזה העוף או הטופו במחבת פסים חמה.\n2. חמם את האורז במחבת.\n3. קצוץ סלט גדול ותבל רק עם שמן הזית והלימון."},
+             {name: 'מוקפץ ספורטאים', tags:['soy'], multi: 0.38, ings: (t) => `${Math.round(t*0.07)} גרם רצועות בקר/עוף, ${Math.round(t*0.06)} גרם אטריות אורז, כוס שעועית ירוקה.`, recipe: "1. הרתח את אטריות האורז עד לריכוך וסנן.\n2. הקפץ את הבשר במחבת ווק לוהטת.\n3. הוסף שעועית ואטריות, זלף מעט סויה."},
+             {name: 'פסטה בולונז (גרסת כושר)', tags:['gluten'], multi: 0.40, ings: (t) => `${Math.round(t*0.08)} גרם בקר רזה טחון, ${Math.round(t*0.07)} גרם פסטה מחיטת מלאה, רסק עגבניות דל סוכר.`, recipe: "1. טגן את הבקר עם בצל במחבת.\n2. הוסף רסק עגבניות ותבלינים ובשל 10 דק'.\n3. הגש על הפסטה המוכנה."}
+           ],
+           evening: [
+             {name: 'סיום התאוששות', tags:['fish','egg'], multi: 0.35, ings: (t) => `${Math.round(t*0.06)} גרם טונה במים או ${Math.max(2, Math.round(t/1000))} ביצים קשות, סלט עשיר.`, recipe: "1. סנן היטב את הטונה או קלף את הביצים.\n2. הכן סלט גדול ורענן.\n3. שים הכל בקערה, זלף טחינה גולמית מלמעלה."},
+             {name: 'פילה דג בתנור', tags:['fish'], multi: 0.35, ings: (t) => `${Math.round(t*0.08)} גרם פילה דג (אמנון/סלמון), ${Math.round(t*0.1)} גרם בטטה אפויה, ירקות מאודים.`, recipe: "1. חמם תנור ל-200 מעלות.\n2. תבל את הדג במלח, פלפל ומעט לימון, ואפה כ-15 דקות.\n3. הגש לצד בטטה אפויה רכה."},
+             {name: 'סלט חלומי וביצה', tags:['lactose', 'egg'], multi: 0.35, ings: (t) => `סלט ענק, ${Math.round(t*0.05)} גרם חלומי צרובה, ביצה קשה ופרוסת לחם מלא.`, recipe: "1. חתוך ירקות טריים לקערה גדולה.\n2. צרוב קוביות חלומי במחבת יבשה עד להזהבה.\n3. הוסף את הגבינה והביצה מעל הסלט."}
+           ]
+         },
+         rest: {
+           morning: [
+               {name: 'דייסה מנחמת', tags:['lactose'], multi: 0.25, ings: (t) => `${Math.round(t*0.03)} כפות שיבולת שועל על בסיס חלב, חצי בננה.`, recipe: "1. חמם חלב ושיבולת שועל.\n2. פזר בננה מעל."},
+               {name: 'יוגורט חלבון', tags:['lactose', 'nuts'], multi: 0.25, ings: (t) => `גביע יוגורט מועשר חלבון, כף אגוזים, כפית סילאן.`, recipe: "1. פתח את היוגורט לקערה.\n2. ערבב פנימה אגוזים וזלף סילאן."}
+           ],
+           lunch: [
+               {name: 'מג׳דרה לבנייה', tags:[], multi: 0.40, ings: (t) => `${Math.round(t*0.12)} גרם מג'דרה, סלט קצוץ דק דק.`, recipe: "1. חמם את המג'דרה.\n2. קצוץ סלט קטן ליד."},
+               {name: 'שקשוקה של אלופים', tags:['egg'], multi: 0.40, ings: (t) => `שקשוקה מ-3 ביצים ברוטב עגבניות עשיר ו-2 פרוסות לחם כהה.`, recipe: "1. הכן רוטב שקשוקה (עגבניות, שום, פלפל).\n2. שבור פנימה ביצים ובשל עד למידת העשייה הרצויה."}
+           ],
+           evening: [
+               {name: 'סלט יווני', tags:['lactose'], multi: 0.35, ings: (t) => `סלט ענק, ${Math.round(t*0.04)} גרם בולגרית, קרוטונים מלחם קלוי.`, recipe: "1. חתוך ירקות והוסף גבינה.\n2. קלה לחם בטוסטר ופזר חתיכות מעל."},
+               {name: 'טורטייה פסטרמה', tags:['gluten'], multi: 0.35, ings: (t) => `טורטייה מקמח מלא, 4 פרוסות פסטרמה דלת שומן, חומוס וירקות.`, recipe: "1. מרח חומוס על הטורטייה.\n2. הוסף פסטרמה וירקות וגלגל."}
+           ]
+         },
+         sick: {
+           morning: [
+             {name: 'תה קמומיל וצנימים', tags:['gluten'], multi: 0.20, ings: (t) => `2 פרוסות לחם לבן קלוי (קל לעיכול), מעט דבש וכוס תה חם.`, recipe: "1. קלה את הלחם כדי שיספוג חומציות בקיבה.\n2. שתה את התה לאט כדי להחזיר נוזלים ולהרגיע את הגרון."},
+             {name: 'דייסת החלמה דלילה', tags:['lactose'], multi: 0.20, ings: (t) => `${Math.round(t*0.02)} כפות שיבולת שועל מבושלת עם המון מים/חלב ומעט סילאן.`, recipe: "1. בשל את שיבולת השועל הרבה זמן עד למרקם חלקלק.\n2. קל על מערכת העיכול ומספק אנרגיה זמינה."}
+           ],
+           lunch: [
+             {name: 'מרק עוף (תרופת סבתא)', tags:[], multi: 0.30, ings: (t) => `קערה גדולה של מרק עוף צח, מעט אטריות או אורז לבן, וחתיכת עוף מכובס.`, recipe: "1. חמם את המרק היטב.\n2. המרק מספק אלקטרוליטים ונוזלים שהגוף מאבד בזמן מחלה. אכול לאט."},
+             {name: 'פירה רך ועוף נקי', tags:[], multi: 0.30, ings: (t) => `${Math.round(t*0.1)} גרם תפוחי אדמה מעוכים לפירה דליל, ומעט חזה עוף לא מתובל.`, recipe: "1. בישול ארוך של תפוח האדמה ומעיכה יסודית.\n2. עוף נקי בלי שמן מספק חלבון בלי להכביד על הקיבה."}
+           ],
+           evening: [
+             {name: 'רסק תפוחים ויוגורט', tags:['lactose'], multi: 0.20, ings: (t) => `גביע יוגורט טבעי (פרוביוטיקה) ו-3 כפות רסק תפוחים ללא סוכר.`, recipe: "1. ערבב הכל יחד.\n2. מעולה להרגעת הבטן ולהחזרת חיידקים טובים למערכת העיכול."},
+             {name: 'ביצה רכה וקרקרים', tags:['egg', 'gluten'], multi: 0.20, ings: (t) => `1-2 ביצים רכות, חופן קרקרים מלוחים (קרקר מים).`, recipe: "1. בישול של 6 דקות במים רותחים לקבלת חלמון נוזלי שקל לעכל.\n2. הקרקרים המלוחים עוזרים מאוד נגד בחילות."}
+           ]
+         }
+       };
+       return p[mood] || p.training; 
+    }
+
+    const ALLERGY_MAP = {'בוטנים':'peanut','אגוזים':'nuts','גלוטן':'gluten','לקטוז':'lactose','ביצים':'egg','דגים':'fish','סויה':'soy'};
+
+    const NOTIF_SLOTS = [
+      {id:'morning',hour:7,min:0,icon:'☀️',title:'בוקר טוב!',bodyFn:(isW,g,n)=>`${n}, היום ${isW?'יום אימון 💪':'יום מנוחה 🔋'}`},
+      {id:'preworkout',hour:17,min:30,icon:'💪',title:'הכנה לאימון',bodyFn:(isW)=>isW?'חימום ומים - האימון עוד שעה!':'יום מנוחה - מתיחות קלות'},
+      {id:'workout',hour:18,min:0,icon:'🔥',title:'זמן אימון!',bodyFn:(isW,g,n)=>isW?`${n}, Fitai מחכה לך!`:'יום מנוחה - הגוף מתחזק'},
+      {id:'sleep',hour:22,min:0,icon:'😴',title:'זמן שינה',bodyFn:(isW,g,n)=>`${n}, שינה = בנייה. לך לישון!`},
+    ];
+
+    // ─────────────────────────────────────────
+    // GENERATING SCREEN
+    // ─────────────────────────────────────────
+    function GeneratingScreen({ onFinish, th }) {
+      const [progress, setProgress] = useState(0);
+      const [text, setText] = useState("מנתח נתונים אישיים...");
+
+      useEffect(() => {
+        let currentProgress = 0;
+        const interval = setInterval(() => {
+          currentProgress += 1; setProgress(currentProgress);
+          if (currentProgress === 15) setText("מחשב נתוני TDEE ומגן מפרקים...");
+          if (currentProgress === 35) setText("מפעיל את מנוע ה-Shifting Matrix...");
+          if (currentProgress === 55) setText("מסנכרן אימונים סביב התרגילים הקשים שלך...");
+          if (currentProgress === 75) setText("מרכיב הנחיות טכניות וביומכניקה...");
+          if (currentProgress === 90) setText("שומר נתונים, מתחילים...");
+          if (currentProgress >= 100) { 
+             clearInterval(interval); 
+             onFinish(); 
+          }
+        }, 30); 
+        return () => clearInterval(interval);
+      }, [onFinish]); 
+
+      return (
+        <div dir="rtl" className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center">
+          <div className={`w-32 h-32 mb-8 rounded-full border-4 ${th.borderPrimary} border-t-transparent animate-spin flex items-center justify-center`}><div className="text-4xl animate-none">{th.emoji}</div></div>
+          <h2 className="text-3xl font-black text-white mb-2">מייצר את הטירוף...</h2>
+          <p className={`text-sm ${th.textPrimaryLight} font-bold mb-12 h-6 transition-all`}>{text}</p>
+          <div className="w-full bg-zinc-900 p-1 rounded-full border border-zinc-800 shadow-inner mb-4">
+             <div className={`h-3 rounded-full ${th.gradientBg} transition-all duration-100 ease-linear shadow-lg ${th.shadowPrimary}`} style={{width: `${progress}%`}}></div>
+          </div>
+          <div className="text-zinc-500 font-bold tabular-nums text-xl">{progress}%</div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [screen, setScreen] = useLocalStorage('fitai_screen', 'splash');
+      const [answers, setAnswers] = useLocalStorage('fitai_answers', {});
+      const [qIdx, setQIdx] = useLocalStorage('fitai_qIdx', 0);
+      const [xp, setXp] = useLocalStorage('fitai_xp', 0);
+      const [workouts, setWorkouts] = useLocalStorage('fitai_workouts', 0);
+      const [mastered, setMastered] = useLocalStorage('fitai_mastered', []);
+      const [unlockedTier, setUnlockedTier] = useLocalStorage('fitai_tier', 1);
+      const [notifEnabled, setNotifEnabled] = useLocalStorage('fitai_notifs', {});
+      
+      const [thisWeekWorkouts, setThisWeekWorkouts] = useLocalStorage('fitai_thisWeekWorkouts', 0);
+      const [thisWeekMeals, setThisWeekMeals] = useLocalStorage('fitai_thisWeekMeals', 0);
+      const [lastReportReset, setLastReportReset] = useLocalStorage('fitai_lastReportReset', null);
+      const [lastMealTrack, setLastMealTrack] = useLocalStorage('fitai_lastMealTrack', null);
+
+      const [localVal,setLocalVal] = useState('');
+      const [toast,setToast] = useState(null);
+      const [agreed,setAgreed] = useState(false);
+      const [toastQueue,setToastQueue] = useState([]);
+    
+      const isHybrid = answers.style === 'שילוב (גם וגם)';
+      const th = getTheme(answers.style);
+      
+      const caliTiersBase = useMemo(() => generatePersonalizedTiers(CALI_MATRIX, 'cali', answers), [answers]);
+      const gymTiersBase = useMemo(() => generatePersonalizedTiers(GYM_MATRIX, 'gym', answers), [answers]);
+
+      const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null),2500); };
+      const addXP = (n) => { setXp(p=>(parseInt(p)||0)+n); showToast(`+${n} XP ${th.emoji}`); };
+    
+      useEffect(() => {
+        if (screen !== 'app') return;
+        const tick = () => {
+          const now = new Date();
+          const isW  = answers.days && answers.days.indexOf(DAYS_HE[now.getDay()])>=0;
+          const goal = answers.goal && answers.goal.indexOf('ירידה')>=0 ? 'חיטוב' : 'מסה';
+          const name = answers.name||'Lupu';
+          
+          NOTIF_SLOTS.forEach(slot => {
+            if (notifEnabled[slot.id] === false) return;
+            if (now.getHours()===slot.hour && now.getMinutes()===slot.min && now.getSeconds()<35) {
+              const body = slot.bodyFn(isW,goal,name);
+              if ('Notification' in window && Notification.permission === 'granted') { new Notification(slot.title, { body, icon: th.emoji }); }
+              setToastQueue(q => { if (q.find(x => x.id === slot.id)) return q; return [...q,{id: slot.id, icon:slot.icon, title:slot.title, body, key:Date.now()+slot.id}]; });
+            }
+          });
+        };
+        const id = setInterval(tick, 30000);
+        return () => clearInterval(id);
+      }, [screen, notifEnabled, answers, th.emoji]);
+
+      useEffect(() => {
+        if (!toastQueue.length) return;
+        const t = setTimeout(() => setToastQueue(q => q.slice(1)), 5000);
+        return () => clearTimeout(t);
+      }, [toastQueue]);
+
+      const filteredQ = useMemo(() => {
+         return QUESTIONS.filter(q => {
+            const isGymOrHybrid = answers.style && (answers.style.includes('חדר כושר') || answers.style.includes('שילוב'));
+            if (q.id === 'location' && isGymOrHybrid) return false; 
+            if (q.id === 'equip' && isGymOrHybrid) return false; 
+            if (q.id === 'equip' && answers.location && answers.location.includes('חדר כושר')) return false;
+            return true;
+         });
+      }, [answers.location, answers.style]);
+
+      useEffect(() => {
+         if (qIdx >= filteredQ.length && filteredQ.length > 0) {
+             setQIdx(Math.max(0, filteredQ.length - 1));
+         }
+      }, [filteredQ.length, qIdx, setQIdx]);
+
+      const activeQ = filteredQ[Math.min(qIdx, Math.max(0, filteredQ.length - 1))] || {};
+    
+      useEffect(() => { 
+        if (!activeQ?.id) return;
+        let initial = answers[activeQ.id];
+        if (initial === undefined) {
+           if (activeQ.type === 'slider') initial = activeQ.default;
+           else if (activeQ.type === 'multi' || activeQ.type === 'days') initial = [];
+           else initial = '';
+        }
+        setLocalVal(initial); 
+      }, [qIdx, activeQ, answers]); 
+    
+      const canProceed = () => {
+        if (!activeQ || !activeQ.id) return false;
+        if (activeQ.id === 'dislikes') return true; 
+        const val = localVal;
+        if (val === undefined || val === null || val === '') return false;
+        if (activeQ.type === 'slider' || activeQ.type === 'number' || activeQ.type === 'text') return String(val).trim() !== '';
+        if (activeQ.type === 'multi' || activeQ.type === 'days') return Array.isArray(val) && val.length > 0;
+        if (activeQ.type === 'choice') return String(val).trim() !== '';
+        return false;
+      };
+      
+      const goNext = () => {
+        if(!canProceed()) return; 
+        let na = {...answers};
+        if (['text','number','slider','multi','days','choice'].includes(activeQ.type)) na[activeQ.id] = localVal;
+        setAnswers(na);
+        if (qIdx < filteredQ.length - 1) setQIdx(qIdx + 1); else setScreen('generating');
+      };
+      
+      const setChoice = (opt) => {
+        let na = {...answers, [activeQ.id]:opt};
+        const isGymOrHybrid = (activeQ.id === 'style' && (opt.includes('חדר כושר') || opt.includes('שילוב')));
+        if (isGymOrHybrid) {
+          na.location = 'חדר כושר';
+          na.equip = ['מוט מתח','מקבילים','טבעות','משקולות','גומיות','מכשירים'];
+        }
+        if (activeQ.id==='location' && opt.includes('חדר כושר')) {
+          na.equip = ['מוט מתח','מקבילים','טבעות','משקולות','גומיות','מכשירים'];
+        }
+        setAnswers(na);
+        setLocalVal(opt);
+        
+        if (qIdx < filteredQ.length - 1) setQIdx(qIdx + 1);
+        else setScreen('generating');
+      };
+      
+      const toggleMulti = (opt) => {
+        const cur = Array.isArray(localVal) ? localVal : []; 
+        const excl = ['ללא','ללא פציעות','ללא ציוד'];
+        if (excl.includes(opt)) {
+            setLocalVal([opt]);
+            return;
+        }
+        const filtered = cur.filter(x => !excl.includes(x));
+        const next = filtered.includes(opt) ? filtered.filter(x => x !== opt) : [...filtered, opt];
+        setLocalVal(next);
+      };
+    
+      const resetApp = () => {
+        if(window.confirm("האם אתה בטוח שברצונך למחוק את כל הנתונים ולהתחיל מחדש? פעולה זו תאפס הכל.")){
+          localStorage.clear(); window.location.reload(); 
+        }
+      };
+
+      const toggleNotif = async (id, val) => {
+        if (val && 'Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') { await Notification.requestPermission(); }
+        setNotifEnabled(prev => ({...prev, [id]:val}));
+      };
+
+      const toggleAllNotifs = async () => {
+        const allOn = NOTIF_SLOTS.every(s => notifEnabled[s.id] !== false);
+        if (!allOn && 'Notification' in window && Notification.permission !== 'granted') { await Notification.requestPermission(); }
+        const next = {}; NOTIF_SLOTS.forEach(s => { next[s.id] = !allOn; }); setNotifEnabled(next);
+      };
+
+      const sendTestNotif = (slot) => {
+        const isW  = answers.days && answers.days.indexOf(DAYS_HE[new Date().getDay()])>=0;
+        const goal = answers.goal && answers.goal.indexOf('ירידה')>=0 ? 'חיטוב' : 'מסה';
+        const body = slot.bodyFn(isW, goal, answers.name||'Lupu');
+        if ('Notification' in window && Notification.permission === 'granted') { new Notification(slot.title, { body, icon: th.emoji }); }
+        setToastQueue(q => [...q, {icon:slot.icon, title:slot.title, body, key:Date.now()}]);
+      };
+
+      const handleMealTrack = () => {
+        const todayStr = new Date().toDateString();
+        if (lastMealTrack !== todayStr) {
+          setThisWeekMeals(m => m + 1); setLastMealTrack(todayStr); addXP(20);
+        } else showToast('כבר סימנת תזונה להיום 🏆');
+      };
+      
+      const finishGenerating = useCallback(() => {
+          setUnlockedTier(1); 
+          setScreen('app');
+      }, [setScreen, setUnlockedTier]);
+    
+      if (screen==='splash') return (
+        <div dir="rtl" className="min-h-screen bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden" style={{fontFamily:'system-ui,sans-serif'}}>
+          <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-600 rounded-full opacity-10 blur-[100px]`}/>
+          <div className="relative z-10 text-center w-full max-w-sm">
+            <img src="https://i.ibb.co/fzRrLJc0/logo.png" alt="Fitai Logo" className="w-32 h-32 mx-auto mb-6 rounded-3xl shadow-2xl shadow-orange-500/30 object-cover border border-zinc-800" />
+            <h1 className={`text-6xl font-black text-white mb-3 tracking-tight`}>Fitai</h1>
+            <p className="text-zinc-400 text-lg mb-12">המערכת החכמה שמותאמת במאה אחוז אליך.</p>
+            <button onClick={()=>setScreen('health')} className={`w-full bg-gradient-to-r from-orange-500 to-red-600 text-white font-black py-5 rounded-2xl text-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-3`}>
+              <span>התחל / המשך</span>
+            </button>
+          </div>
+        </div>
+      );
+    
+      if (screen==='health') return (
+        <div dir="rtl" className="min-h-screen bg-black flex flex-col p-6" style={{fontFamily:'system-ui,sans-serif'}}>
+          <div className="max-w-md mx-auto w-full flex-1 flex flex-col pt-4">
+            <div className={`text-orange-500 font-bold uppercase tracking-widest text-xs mb-2`}>מסמך משפטי מחייב</div>
+            <h2 className="text-3xl font-black text-white mb-5">בטיחות לפני הכל.</h2>
+            <div className="flex-1 bg-zinc-900 rounded-3xl p-6 border border-zinc-800 mb-5 overflow-y-auto max-h-96 space-y-4 text-zinc-300 text-sm leading-relaxed">
+              <p><b className="text-white block mb-1">1. פטור נזיקין:</b>האימונים באחריותך הבלעדית.</p>
+              <p><b className="text-white block mb-1">2. אישור רפואי:</b>חובה להתייעץ עם רופא לפני תחילת תוכנית אימונים.</p>
+              <p><b className="text-white block mb-1">3. כאב = עצור:</b>כאב חד, סחרחורת, בחילה? עצור מיידית.</p>
+              <p><b className="text-white block mb-1">4. תזונה:</b>התפריטים הם המלצה כללית בלבד.</p>
+            </div>
+            <button type="button" onClick={()=>setAgreed(!agreed)} className={`flex justify-between items-center p-5 rounded-2xl border-2 mb-4 transition-all w-full text-right ${agreed?`border-orange-500 bg-orange-500/10`:'border-zinc-700 hover:border-zinc-600 cursor-pointer'}`}>
+              <div className={`w-6 h-6 rounded flex items-center justify-center border-2 flex-shrink-0 transition-all ${agreed?`bg-orange-500 border-orange-500`:'border-zinc-500'}`}>{agreed && <Check className="w-4 h-4 text-white" strokeWidth={3}/>}</div>
+              <span className="font-bold text-sm text-white">קראתי ואני מאשר/ת הכל</span>
+            </button>
+            <button disabled={!agreed} onClick={()=>setScreen('q')} className={`w-full py-4 rounded-2xl font-black text-xl transition-all ${agreed?'bg-white text-black active:scale-95 shadow-xl':'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed'}`}>המשך לשאלון</button>
+          </div>
+        </div>
+      );
+    
+      if (screen==='q') {
+        const qTheme = answers.style ? getTheme(answers.style) : { textPrimary: 'text-orange-500', borderPrimary: 'border-orange-500', bgPrimary10: 'bg-orange-500/10', gradientBg: 'bg-gradient-to-r from-orange-500 to-red-600', hex: '#f97316' };
+        if (!activeQ?.id) return null; 
+
+        return (
+          <div dir="rtl" className={`min-h-screen bg-black flex flex-col p-6 text-white`} style={{fontFamily:'system-ui,sans-serif'}}>
+            <div className="max-w-md mx-auto w-full flex-1 flex flex-col">
+              <div className="flex justify-between items-center mb-4 pt-4">
+                <button onClick={()=>qIdx===0?setScreen('health'):setQIdx(qIdx-1)} className="text-zinc-500 text-2xl p-2 hover:text-white">›</button>
+                <span className="text-xs text-zinc-500 font-bold uppercase">{qIdx+1} / {filteredQ.length}</span>
+              </div>
+              <div className="w-full h-1.5 bg-zinc-900 rounded-full mb-8 overflow-hidden border border-zinc-800">
+                <div className={`h-full ${qTheme.gradientBg} transition-all duration-300`} style={{width:`${((qIdx+1)/filteredQ.length)*100}%`}}/>
+              </div>
+              <h2 className="text-3xl font-black text-white mb-8 leading-tight">{activeQ.q}</h2>
+              <div className="flex-1 overflow-y-auto pb-4 space-y-3">
+                {activeQ.type==='choice' && activeQ.options?.map(opt=>(
+                  <button key={opt} onClick={()=>setChoice(opt)} className={`w-full p-5 rounded-2xl border-2 text-right font-bold text-lg transition-all ${localVal===opt?`${qTheme.borderPrimary} ${qTheme.bgPrimary10} text-white`:'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'}`}>{opt}</button>
+                ))}
+                {(activeQ.type==='multi'||activeQ.type==='days') && activeQ.options?.map(opt=>{
+                  const sel=(localVal||[]).indexOf(opt)>=0;
+                  return(
+                    <button key={opt} onClick={()=>toggleMulti(opt)} className={`w-full flex justify-between items-center p-5 rounded-2xl border-2 font-bold text-lg transition-all ${sel?`${qTheme.bgPrimary10} ${qTheme.borderPrimary} text-white`:'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'}`}>
+                      {sel ? <Check className={`w-5 h-5 ${qTheme.textPrimary}`}/> : <span/>}<span>{opt}</span>
+                    </button>
+                  );
+                })}
+                {(activeQ.type==='text') && <input type="text" placeholder={activeQ.placeholder} value={localVal} onChange={e=>setLocalVal(e.target.value)} className={`w-full bg-zinc-900 p-5 rounded-2xl border border-zinc-800 text-xl text-white font-bold text-right outline-none focus:ring-2 transition-colors`} style={{'--tw-ring-color': qTheme.hex}} autoFocus/>}
+                {(activeQ.type==='number') && <input type="number" placeholder={activeQ.placeholder} min={activeQ.min} max={activeQ.max} value={localVal} onChange={e=>setLocalVal(e.target.value)} className={`w-full bg-zinc-900 p-5 rounded-2xl border border-zinc-800 text-xl text-white font-bold text-right outline-none focus:ring-2 transition-colors`} style={{'--tw-ring-color': qTheme.hex}} autoFocus/>}
+                {(activeQ.type==='slider') && (
+                  <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 text-center mt-4 shadow-lg">
+                    <div className="text-6xl font-black text-white mb-8 tabular-nums">{localVal || activeQ.default}</div>
+                    <input type="range" min={activeQ.min} max={activeQ.max} step={activeQ.step||1} value={localVal || activeQ.default} onChange={e=>setLocalVal(e.target.value)} className="w-full" style={{ color: qTheme.hex }} />
+                    <div className="flex justify-between text-zinc-500 text-sm mt-4 font-bold"><span>{activeQ.min}</span><span>{activeQ.max}</span></div>
+                  </div>
+                )}
+              </div>
+              <button disabled={!canProceed()} onClick={goNext} className={`w-full py-4 rounded-2xl font-black mt-4 text-xl transition-all ${canProceed()?'bg-white text-black active:scale-95 shadow-lg':'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed'}`}>
+                {activeQ.id === 'dislikes' && (!localVal || String(localVal).trim() === '') ? 'דלג' : 'המשך'}
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      if (screen==='generating') return <GeneratingScreen onFinish={finishGenerating} th={th} />;
+    
+      return (
+        <div dir="rtl" className="min-h-screen bg-black text-white" style={{fontFamily:'system-ui,sans-serif'}}>
+          {toast && (<div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-white text-black px-6 py-3 rounded-full shadow-2xl font-black text-sm transition-all">{toast}</div>)}
+          {toastQueue.slice(0,1).map(n => (
+            <div key={n.key} className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-zinc-900 border ${th.borderPrimary40} rounded-2xl px-4 py-3 shadow-2xl max-w-xs w-full text-right`}>
+              <div className="flex items-start gap-3"><button onClick={()=>setToastQueue(q=>q.slice(1))} className="text-zinc-500 text-xs mt-0.5 hover:text-white">✕</button><div className="flex-1"><div className="font-black text-white text-sm">{n.icon} {n.title}</div><div className="text-xs text-zinc-400 mt-0.5">{n.body}</div></div></div>
+            </div>
+          ))}
+          <MainAppTabs
+            answers={answers} xp={parseInt(xp) || 0} mastered={mastered} workouts={workouts} unlockedTier={unlockedTier}
+            notifEnabled={notifEnabled} onToggleNotif={toggleNotif} onToggleAllNotifs={toggleAllNotifs} onTestNotif={sendTestNotif}
+            thisWeekWorkouts={thisWeekWorkouts} thisWeekMeals={thisWeekMeals} 
+            lastReportReset={lastReportReset} setLastReportReset={setLastReportReset}
+            setThisWeekWorkouts={setThisWeekWorkouts} setThisWeekMeals={setThisWeekMeals}
+            onMealTrack={handleMealTrack} lastMealTrack={lastMealTrack}
+            th={th} isHybrid={isHybrid} caliTiersBase={caliTiersBase} gymTiersBase={gymTiersBase}
+            onWorkoutDone={()=>{ setWorkouts(w=>w+1); setThisWeekWorkouts(w=>w+1); addXP(100); }}
+            onToggleSkill={(id)=>{
+              const m = mastered || [];
+              const has = m.includes(id); 
+              setMastered(has ? m.filter(x=>x!==id) : [...m,id]);
+              showToast(has ? `הוסר מהאימונים` : `${th.emoji} יוזרק לאימון הבא!`); 
+            }}
+            onPassTest={(tierPassed) => { setUnlockedTier(Math.max(unlockedTier, tierPassed + 1)); showToast(`🏆 רמה ${tierPassed + 1} נפתחה בהצלחה!`); addXP(500); }}
+            showToast={showToast} resetApp={resetApp}
+          />
+        </div>
+      );
+    }
+    
+    function MainAppTabs({ answers, xp, mastered, workouts, unlockedTier, notifEnabled, onToggleNotif, onToggleAllNotifs, onTestNotif, thisWeekWorkouts, thisWeekMeals, lastReportReset, setLastReportReset, setThisWeekWorkouts, setThisWeekMeals, onMealTrack, lastMealTrack, onWorkoutDone, onToggleSkill, onPassTest, showToast, resetApp, th, isHybrid, caliTiersBase, gymTiersBase }) {
+      const [tab, setTab] = useState('home');
+      const [dur, setDur] = useState(null);
+      const [wType, setWType] = useState('cali');
+    
+      return (
+        <div className="max-w-md mx-auto relative">
+          <div className="pb-24 min-h-screen">
+            {tab==='home'&&!dur&&<Dashboard answers={answers} xp={xp} workouts={workouts} unlockedTier={unlockedTier} onStart={(d, t)=>{setDur(d); setWType(t);}} resetApp={resetApp} showToast={showToast} thisWeekWorkouts={thisWeekWorkouts} thisWeekMeals={thisWeekMeals} lastReportReset={lastReportReset} setLastReportReset={setLastReportReset} setThisWeekWorkouts={setThisWeekWorkouts} setThisWeekMeals={setThisWeekMeals} th={th} isHybrid={isHybrid}/>}
+            {tab==='home'&&dur&&<WorkoutPlayer answers={answers} mastered={mastered} duration={dur} wType={wType} caliTiersBase={caliTiersBase} gymTiersBase={gymTiersBase} unlockedTier={unlockedTier} workoutCount={workouts} onFinish={()=>{onWorkoutDone();setDur(null);}} onExit={()=>setDur(null)} th={th}/>}
+            {tab==='skills'&&!dur&&<SkillTree mastered={mastered} unlockedTier={unlockedTier} isHybrid={isHybrid} toggle={onToggleSkill} onPassTest={onPassTest} showToast={showToast} th={th} caliTiersBase={caliTiersBase} gymTiersBase={gymTiersBase} answers={answers} />}
+            {tab==='nutrition'&&!dur&&<NutritionView answers={answers} onMealTrack={onMealTrack} lastMealTrack={lastMealTrack} th={th}/>}
+            {tab==='notifications'&&!dur&&<NotificationsView answers={answers} notifEnabled={notifEnabled} onToggle={onToggleNotif} onToggleAll={onToggleAllNotifs} onTest={onTestNotif} th={th}/>}
+          </div>
+          {!dur && (
+            <nav className="fixed bottom-0 w-full max-w-md bg-black border-t border-zinc-900 flex justify-around p-3 pb-4 rounded-t-3xl z-40 shadow-2xl">
+              {[['home','🏠','בית'],['skills','🌳','טירים'],['nutrition','🥩','תזונה'],['notifications','🔔','התראות']].map(([t,ic,lb])=>(
+                <button key={t} onClick={()=>setTab(t)} className={`flex flex-col items-center transition-all duration-300 w-1/4 ${tab===t?`text-white scale-110 -translate-y-1`:'text-zinc-600 hover:text-zinc-400'}`}>
+                  <span className="text-2xl mb-1">{ic}</span><span className="text-xs font-bold">{lb}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
+      );
+    }
+    
+    function Dashboard({ answers, xp, workouts, unlockedTier, onStart, resetApp, showToast, thisWeekWorkouts, thisWeekMeals, lastReportReset, setLastReportReset, setThisWeekWorkouts, setThisWeekMeals, th, isHybrid }) {
+      const today = DAYS_HE[new Date().getDay()];
+      const isWorkoutDay = answers.days && answers.days.indexOf(today)>=0;
+      const [showModal, setShowModal] = useState(false);
+      const [showReport, setShowReport] = useState(false);
+      const [pendingType, setPendingType] = useState('cali');
+    
+      const level = Math.floor(xp/100)+1;
+      const xpPct = xp%100;
+
+      const getWeeklyFeedback = () => {
+        const targetW = answers.days ? answers.days.length : 3;
+        const targetM = 7; 
+        let sW = targetW > 0 ? Math.min((thisWeekWorkouts / targetW) * 50, 50) : 50;
+        let sM = Math.min((thisWeekMeals / targetM) * 50, 50);
+        if (isNaN(sW) || !isFinite(sW)) sW = 0;
+        let score = Math.round(sW + sM);
+        let text = "";
+        if (score >= 90) text = "שבוע מטורף! נתת בראש באימונים ושמרת על התזונה בצורה פסיכית.";
+        else if (score >= 70) text = "שבוע טוב! היית חזק, אבל יש עוד קצת מקום לדייק.";
+        else text = "שבוע קצת חלש. המטרה עכשיו היא לאסוף את עצמך, מתחילים מחדש חזק יותר!";
+        return { score, text, targetW };
+      };
+
+      const handleResetWeek = () => {
+        setLastReportReset(new Date().toDateString());
+        setThisWeekWorkouts(0); setThisWeekMeals(0); setShowReport(false);
+        showToast("שבוע חדש התחיל! צא לדרך 🚀");
+      };
+      
+      const currentReport = getWeeklyFeedback();
+      const currentScoreColor = currentReport.score >= 90 ? 'text-green-400' : currentReport.score >= 70 ? 'text-yellow-400' : 'text-red-500';
+    
+      return (
+        <div className="p-6 pt-8">
+          <div className="flex justify-between items-center mb-8">
+            <button onClick={resetApp} className="text-xs text-zinc-500 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-full hover:text-red-400 transition-colors font-bold">איפוס נתונים</button>
+            <div className="text-right flex items-center gap-3">
+              <div>
+                <div className={`text-xs ${th.textPrimary} font-bold uppercase tracking-widest mb-1`}>Fitai App</div>
+                <h1 className="text-3xl font-black text-white">שלום, {answers.name || 'Lupu'}</h1>
+              </div>
+              <img src="https://i.ibb.co/fzRrLJc0/logo.png" className="w-12 h-12 rounded-full border border-zinc-800 shadow-lg object-cover" alt="logo" />
+            </div>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 mb-6 text-white relative overflow-hidden shadow-lg">
+            <div className="flex justify-between items-center mb-2">
+               <span className={`font-black text-2xl ${currentScoreColor}`}>{currentReport.score}<span className="text-sm text-zinc-500">/100</span></span>
+               <h3 className="font-black text-lg">סטטוס שבועי 📊</h3>
+            </div>
+            <p className="text-zinc-400 text-sm mb-4 truncate">{currentReport.text}</p>
+            <button onClick={()=>setShowReport(true)} className={`w-full bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 ${th.textPrimaryLight} font-bold py-3 rounded-xl transition-all active:scale-95`}>
+              צפה בדו״ח המלא
+            </button>
+          </div>
+    
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 text-center shadow-lg">
+              <div className="text-5xl font-black text-white">{unlockedTier} <span className="text-xl text-zinc-500">/ 6</span></div>
+              <div className={`text-xs ${th.textPrimary} font-bold uppercase tracking-widest mt-1`}>רמת אימון נוכחית</div>
+            </div>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 text-center shadow-lg">
+              <div className="text-5xl font-black text-white">{workouts}</div>
+              <div className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">אימונים</div>
+            </div>
+          </div>
+    
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 mb-6 shadow-lg">
+            <div className="flex justify-between mb-2">
+              <span className="text-xs text-zinc-500 font-bold">רמה {level}</span>
+              <span className={`text-xs ${th.textPrimary} font-bold`}>{xpPct}/100 XP</span>
+            </div>
+            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden border border-zinc-700">
+              <div className={`h-full ${th.gradientBg} transition-all`} style={{width:`${xpPct}%`}}/>
+            </div>
+          </div>
+    
+          {isWorkoutDay ? (
+            <div className="space-y-4">
+               {isHybrid ? (
+                 <>
+                   <div className="bg-gradient-to-r from-orange-500 to-red-600 p-5 rounded-3xl shadow-xl text-white relative overflow-hidden">
+                     <h3 className="text-2xl font-black mb-1">אימון קליסטניקס 🔥</h3>
+                     <p className="text-xs text-white/80 mb-3">פלג גוף עליון ממשקל גוף</p>
+                     <button onClick={() => { setPendingType('cali'); setShowModal(true); }} className="w-full bg-white/20 hover:bg-white/30 active:scale-95 p-3 rounded-xl font-bold transition-all">התחל עכשיו</button>
+                   </div>
+                   <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-5 rounded-3xl shadow-xl text-white relative overflow-hidden">
+                     <h3 className="text-2xl font-black mb-1">אימון מכשירים ⚡</h3>
+                     <p className="text-xs text-white/80 mb-3">לחיצות ומשקולות כבדים</p>
+                     <button onClick={() => { setPendingType('gym'); setShowModal(true); }} className="w-full bg-white/20 hover:bg-white/30 active:scale-95 p-3 rounded-xl font-bold transition-all">התחל עכשיו</button>
+                   </div>
+                   <div className="bg-gradient-to-r from-purple-500 to-pink-600 p-5 rounded-3xl shadow-xl text-white relative overflow-hidden">
+                     <h3 className="text-2xl font-black mb-1">אימון משולב 🧬</h3>
+                     <p className="text-xs text-white/80 mb-3">משקולות רגליים וקליסטניקס חזה/גב</p>
+                     <button onClick={() => { setPendingType('hybrid'); setShowModal(true); }} className="w-full bg-white/20 hover:bg-white/30 active:scale-95 p-3 rounded-xl font-bold transition-all">התחל עכשיו</button>
+                   </div>
+                 </>
+               ) : (
+                 <div className={`${th.gradientBg} p-7 rounded-3xl shadow-2xl ${th.shadowPrimary40} text-white relative overflow-hidden`}>
+                   <div className="absolute -top-4 -left-4 text-8xl font-black italic opacity-20 -rotate-12">{th.emoji}</div>
+                   <div className="relative z-10">
+                     <div className="text-xs font-black text-white/50 uppercase tracking-widest mb-2">מוכן לזוז?</div>
+                     <h3 className="text-4xl font-black mb-5">אימון יומי מותאם</h3>
+                     <button onClick={()=>{ setPendingType(answers.style === 'חדר כושר (משקולות)' ? 'gym' : 'cali'); setShowModal(true);}} className={`w-full bg-white text-black font-black py-4 rounded-2xl text-xl active:scale-95 transition-transform shadow-[0_0_30px_-5px_rgba(255,255,255,0.4)]`}>
+                       התחל אימון עכשיו
+                     </button>
+                   </div>
+                 </div>
+               )}
+            </div>
+          ) : (
+            <div className="bg-gradient-to-bl from-zinc-700 to-zinc-900 p-7 rounded-3xl shadow-2xl text-white relative overflow-hidden border border-zinc-700">
+              <div className="absolute -top-4 -left-4 text-8xl font-black italic opacity-10 -rotate-12">🔋</div>
+              <div className="relative z-10 text-right">
+                <div className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">יום מנוחה מוגדר מראש</div>
+                <h3 className="text-4xl font-black mb-3">זמן לבנות שריר</h3>
+                <p className="text-zinc-300 text-sm mb-6 leading-relaxed">
+                  בימי המנוחה השריר נבנה, משתקם ומתחזק. תן לגוף את הזמן שלו להתאושש כדי להגיע חזק יותר לאימון הבא שלך.
+                </p>
+                <button onClick={()=>showToast('יום מנוחה! קח את הזמן לנוח ולהתאושש 🧘‍♂️')} className="w-full bg-white/10 backdrop-blur-md text-white font-black py-4 rounded-2xl text-xl border border-white/20 shadow-xl active:scale-95 transition-transform">
+                  מצב התאוששות פעיל
+                </button>
+              </div>
+            </div>
+          )}
+    
+          {showModal && (
+            <div className="fixed inset-0 bg-black/95 backdrop-blur-xl flex justify-center items-center z-50 p-6">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7 w-full max-w-sm text-right">
+                <h3 className="text-3xl font-black text-white mb-2">כמה זמן יש לך?</h3>
+                <div className="space-y-3 mt-6">
+                  {[
+                    {d:30,l:'30 דקות',s:'3 סטים · 4 תרגילים'},
+                    {d:45,l:'45 דקות',s:'3 סטים · 5 תרגילים',hi:true},
+                    {d:60,l:'60 דקות',s:'4 סטים · 5 תרגילים'},
+                    {d:90,l:'90 דקות',s:'4 סטים · 6 תרגילים'}
+                  ].map(({d,l,s,hi})=>(
+                    <button key={d} onClick={()=>{setShowModal(false);onStart(d, pendingType);}}
+                      className={`w-full flex justify-between items-center p-4 rounded-2xl font-bold text-lg transition-all ${hi?`${th.bgPrimary10} ${th.borderPrimary} text-white`:'bg-zinc-950 border border-zinc-800 text-white hover:border-zinc-600'}`}>
+                      <span className={`text-sm ${hi?th.textPrimaryLight:'text-zinc-500'}`}>{s}</span>
+                      <span>{l}</span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={()=>setShowModal(false)} className="w-full mt-5 text-zinc-500 font-bold text-sm uppercase tracking-widest hover:text-white transition-colors">ביטול</button>
+              </div>
+            </div>
+          )}
+
+          {showReport && (
+            <div className="fixed inset-0 bg-black/95 backdrop-blur-xl flex justify-center items-center z-50 p-6">
+              <div className={`bg-zinc-900 border-2 ${th.borderPrimary50} rounded-3xl p-7 w-full max-w-sm text-right`}>
+                {(()=>{
+                  const report = getWeeklyFeedback();
+                  const scoreColor = report.score >= 90 ? 'text-green-400' : report.score >= 70 ? 'text-yellow-400' : 'text-red-500';
+                  return (
+                    <>
+                      <div className="text-center mb-6">
+                        <div className={`text-xs ${th.textPrimaryLight} font-bold uppercase tracking-widest mb-2`}>דו״ח אישי ל-{answers.name || 'Lupu'}</div>
+                        <div className={`text-8xl font-black mb-2 ${scoreColor}`}>{report.score}</div>
+                        <div className="text-zinc-400 text-sm">ציון מתוך 100</div>
+                      </div>
+                      <div className="bg-black rounded-2xl p-4 border border-zinc-800 mb-4 flex justify-between items-center"><span className="text-white font-bold">{thisWeekWorkouts} / {report.targetW}</span><span className="text-zinc-400 text-sm">אימונים שבוצעו</span></div>
+                      <div className="bg-black rounded-2xl p-4 border border-zinc-800 mb-6 flex justify-between items-center"><span className="text-white font-bold">{thisWeekMeals} / 7</span><span className="text-zinc-400 text-sm">ימי תזונה תקינים</span></div>
+                      <div className={`${th.bgPrimary10} border ${th.borderPrimary30} rounded-xl p-4 mb-6`}><p className={`text-white text-sm leading-relaxed`}>{report.text}</p></div>
+                      <button onClick={handleResetWeek} className={`w-full ${th.gradientBg} text-white font-black py-4 rounded-2xl text-lg shadow-lg ${th.shadowPrimary40} active:scale-95 transition-all mb-3`}>התחל שבוע חדש מ-0</button>
+                      <button onClick={()=>setShowReport(false)} className="w-full text-zinc-500 font-bold py-3 hover:text-white transition-colors">סגור</button>
+                    </>
+                  )
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    function WorkoutPlayer({ answers, mastered, duration, wType, caliTiersBase, gymTiersBase, unlockedTier, workoutCount, onFinish, onExit, th }) {
+      const [showCamera, setShowCamera] = useState(false);
+      
+      const [isListening, setIsListening] = useState(false);
+      const [coachText, setCoachText] = useState('לחץ על המיקרופון ודבר איתי, אני איתך במנוחה!');
+      const [userSpeech, setUserSpeech] = useState('');
+
+      // seed אקראי שנוצר פעם אחת לכל אימון, מבטיח שכל אימון שונה
+      const workoutSeed = useRef(Math.floor(Math.random() * 10000));
+
+      const plan = useMemo(() => {
+        const seed = workoutSeed.current;
+        // פונקציית random דטרמיניסטית המבוססת על seed
+        const seededRand = (n, offset = 0) => ((seed * 9301 + 49297 * (n + offset + 1)) % 233280) / 233280;
+
+        const getSkillFromBase = (baseMatrix, targetCols, slotIndex = 0) => {
+            if (!baseMatrix || !baseMatrix.length) return { name: 'גיבוי', wFactor: 0, level: 1 }; 
+            let actualTierIdx = unlockedTier - 1;
+            if (actualTierIdx >= baseMatrix.length) actualTierIdx = baseMatrix.length - 1;
+            if (actualTierIdx < 0) actualTierIdx = 0;
+            const tier = baseMatrix[actualTierIdx];
+            if (tier && tier.skills) {
+                // אסוף את כל האפשרויות הלא מושלמות
+                const available = targetCols.map(col => tier.skills[col]).filter(sk => sk && !(mastered||[]).includes(sk.id));
+                if (available.length > 0) {
+                    // בחר אקראית לפי seed + slotIndex כדי שכל תרגיל בסלוט שלו יהיה שונה
+                    const idx = Math.floor(seededRand(slotIndex) * available.length);
+                    return available[idx];
+                }
+            }
+            const fallbackCol = targetCols[0];
+            return baseMatrix[actualTierIdx]?.skills[fallbackCol] || baseMatrix[baseMatrix.length - 1]?.skills[fallbackCol] || { name: 'תרגיל מתקדם', wFactor: 0, level: 1 }; 
+        };
+
+        let pPush, pPull, pCore, pLegs;
+        if (wType === 'cali') {
+            pPush = getSkillFromBase(caliTiersBase, [0, 4], 0); 
+            pPull = getSkillFromBase(caliTiersBase, [3, 7], 1); 
+            pCore = getSkillFromBase(caliTiersBase, [1, 5, 8], 2); 
+            pLegs = getSkillFromBase(caliTiersBase, [2, 6], 3); 
+        } else if (wType === 'gym') {
+            pPush = getSkillFromBase(gymTiersBase, [0, 4], 0);
+            pPull = getSkillFromBase(gymTiersBase, [3, 7], 1);
+            pCore = getSkillFromBase(gymTiersBase, [1, 5, 8], 2);
+            pLegs = getSkillFromBase(gymTiersBase, [2, 6], 3);
+        } else { 
+            pPush = getSkillFromBase(caliTiersBase, [0, 4], 0); 
+            pPull = getSkillFromBase(caliTiersBase, [3, 7], 1); 
+            pLegs = getSkillFromBase(gymTiersBase, [2, 6], 3);  
+            pCore = getSkillFromBase(gymTiersBase, [1, 5, 8], 2); 
+        }
+
+        let generatedPlan = [
+          { target: 'legs', name: pLegs?.name || 'סקוואט', wFactor: pLegs?.wFactor||0, reps: '12' },
+          { target: 'push', name: pPush?.name || 'שכיבות סמיכה', wFactor: pPush?.wFactor||0, reps: '10' },
+          { target: 'core', name: pCore?.name || 'פלאנק', wFactor: pCore?.wFactor||0, reps: "45 שנ'" },
+          { target: 'pull', name: pPull?.name || 'מתח', wFactor: pPull?.wFactor||0, reps: '8' }
+        ];
+
+        // ערבוב סדר התרגילים הבסיסיים לפי seed
+        for (let i = generatedPlan.length - 1; i > 0; i--) {
+          const j = Math.floor(seededRand(i, 100) * (i + 1));
+          [generatedPlan[i], generatedPlan[j]] = [generatedPlan[j], generatedPlan[i]];
+        }
+
+        let exCount=4, sets=3;
+        if (duration===45){exCount=5;sets=3;}
+        if (duration===60){exCount=5;sets=4;}
+        if (duration===90){exCount=6;sets=4;}
+        
+        if (exCount > 4) {
+            const usedNames = new Set(generatedPlan.map(e => e.name));
+            let pLegs2, pPush2;
+            if (wType === 'hybrid' || wType === 'cali') {
+                pLegs2 = getSkillFromBase(wType==='hybrid'?gymTiersBase:caliTiersBase, [6, 2], 4); 
+                pPush2 = getSkillFromBase(caliTiersBase, [4, 0], 5); 
+            } else {
+                pLegs2 = getSkillFromBase(gymTiersBase, [6, 2], 4);
+                pPush2 = getSkillFromBase(gymTiersBase, [4, 0], 5);
+            }
+            // הוסף רק אם התרגיל לא כפול
+            if (pLegs2 && !usedNames.has(pLegs2.name)) {
+                generatedPlan.push({ target: 'legs', name: pLegs2.name, wFactor: pLegs2.wFactor||0, reps: '10/רגל' });
+            } else {
+                generatedPlan.push({ target: 'legs', name: 'מכרעים', wFactor: pLegs2?.wFactor||0, reps: '10/רגל' });
+            }
+            if (exCount > 5) {
+                if (pPush2 && !usedNames.has(pPush2.name)) {
+                    generatedPlan.push({ target: 'push', name: pPush2.name, wFactor: pPush2.wFactor||0, reps: '10' });
+                } else {
+                    generatedPlan.push({ target: 'push', name: 'מקבילים', wFactor: pPush2?.wFactor||0, reps: '10' });
+                }
+            }
+        }
+        generatedPlan = generatedPlan.slice(0,exCount);
+
+        let pushMulti = 1.0, pullMulti = 1.0, coreMulti = 1.0, legsMulti = 1.0;
+        if(answers.pushups === '30+') pushMulti = 1.8; else if(answers.pushups === '16-30') pushMulti = 1.4; else if(answers.pushups === '0-5') pushMulti = 0.6;
+        if(answers.pullups === '10+') pullMulti = 1.8; else if(answers.pullups === '5-10') pullMulti = 1.4; else if(answers.pullups === '0') pullMulti = 0.6;
+        const sit = answers.situps || '0-15'; const plnk = answers.plank || 'פחות מדקה';
+        if(sit === '50+' || plnk === '3 דקות ומעלה') coreMulti = 1.8; else if(sit === '31-50' || plnk === '2-3 דקות') coreMulti = 1.4; else if(sit === '0-15' && plnk === 'פחות מדקה') coreMulti = 0.6;
+        const sq = answers.squats || '0-20';
+        if(sq === 'מצליח פיסטול (רגל אחת)' || sq === '51-100') legsMulti = 1.8; else if(sq === '21-50') legsMulti = 1.4; else if(sq === '0-20') legsMulti = 0.6;
+        
+        const userWeight = parseInt(answers.weight) || 70;
+
+        // ── Progressive Overload ──
+        // כל 3 אימונים שהושלמו, הקושי עולה מעט
+        const totalWorkouts = parseInt(workoutCount) || 0;
+        const progressLevel = Math.floor(totalWorkouts / 3); // עולה כל 3 אימונים
+        const repsBonus = Math.min(progressLevel, 8); // עד +8 חזרות בונוס
+        const timeBonus = Math.min(progressLevel * 5, 40); // עד +40 שניות בונוס לתרגילי זמן
+        const weightBonus = 1 + Math.min(progressLevel * 0.025, 0.25); // עד +25% משקל בונוס
+
+        return generatedPlan.map(e => {
+          let multi = 1.0;
+          if (e.target === 'push') multi = pushMulti;
+          else if (e.target === 'pull') multi = pullMulti;
+          else if (e.target === 'core') multi = coreMulti;
+          else if (e.target === 'legs') multi = legsMulti;
+
+          let r = e.reps || '10';
+          let finalReps = "";
+          if(r.includes("שנ'")) finalReps = `${Math.round(parseInt(r) * multi) + timeBonus} שנ'`;
+          else if(r.includes("/רגל")) finalReps = `${Math.max(1, Math.round(parseInt(r) * multi) + repsBonus)}/רגל`;
+          else finalReps = `${Math.max(1, Math.round(parseInt(r) * multi) + repsBonus)}`;
+          
+          let wText = "";
+          if (e.wFactor) wText = `${Math.round(userWeight * e.wFactor * weightBonus)} ק"ג`;
+
+          return {...e, sets: sets, reps: finalReps, weightText: wText};
+        });
+      }, [wType, mastered, duration, answers, caliTiersBase, gymTiersBase, unlockedTier, workoutCount, workoutSeed.current]);
+
+      const [exIdx, setExIdx]   = useState(0);
+      const [setIdx, setSetIdx] = useState(0);
+      
+      const [resting, setResting] = useState(false);
+      const [timer, setTimer] = useState(0);
+      const [done, setDone] = useState(false);
+
+      const ex = plan[exIdx];
+      const isTimeBased = ex && ex.reps && ex.reps.includes("שנ'");
+      const targetTime = isTimeBased ? parseInt(ex.reps) : 0;
+      
+      const [exTimerActive, setExTimerActive] = useState(false);
+      const [exTimeLeft, setExTimeLeft] = useState(0);
+
+      useEffect(() => {
+          if(isTimeBased) setExTimeLeft(targetTime);
+          setExTimerActive(false);
+      }, [exIdx, setIdx, isTimeBased, targetTime]);
+
+      useEffect(() => {
+          if(exTimerActive && exTimeLeft > 0 && !resting) {
+              const t = setTimeout(() => setExTimeLeft(l => l - 1), 1000);
+              return () => clearTimeout(t);
+          }
+      }, [exTimerActive, exTimeLeft, resting]);
+      
+      const restTime = answers.goal && answers.goal.indexOf('ירידה') >= 0 ? 60 : 90;
+    
+      useEffect(() => {
+        if (!resting || timer <= 0) { 
+          if (resting && timer === 0) setResting(false); 
+          return; 
+        }
+        const t = setTimeout(() => setTimer(s => s - 1), 1000);
+        return () => clearTimeout(t);
+      }, [resting, timer]);
+
+      const startSpeechRecognition = () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          alert("הדפדפן או המכשיר שלך לא תומכים בזיהוי דיבור קולי כרגע.");
+          return;
+        }
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'he-IL';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => setIsListening(true);
+        recognition.onend = () => setIsListening(false);
+        recognition.onerror = () => setIsListening(false);
+        
+        recognition.onresult = async (event) => {
+          const speechResult = event.results[0][0].transcript;
+          setUserSpeech(speechResult);
+          await requestCoachAI(speechResult);
+        };
+        
+        try {
+          recognition.start();
+        } catch (e) {
+          setIsListening(false);
+        }
+      };
+
+      // הפנייה הישירה ל-Gemini (מתוקן ועובד מהדפדפן)
+      const requestCoachAI = async (userText) => {
+        if (!GEMINI_API_KEY || GEMINI_API_KEY === "הכנס_את_המפתח_שלך_כאן") {
+          setCoachText("שכחת להכניס את ה-API Key שלך בקוד, אחי! תעדכן את השורה למעלה.");
+          return;
+        }
+
+        setCoachText("שומע אותך, חושב על תגובה...");
+        try {
+          const systemPrompt = `אתה מאמן כושר אישי מנטור שהוא גם אח גדול, קשוח ומלא אנרגיה. המתאמן כרגע נמצא במנוחה של דקה וחצי בין סטים של התרגיל: ${ex?.name || 'תרגיל כוח'}. זהו סט מספר ${setIdx + 1} מתוך ${ex?.sets || 3}. נשארו לו עוד ${timer} שניות לחזור להתאמן. הוא אמר לך כרגע: "${userText}". תענה לו בצורה קצרה ביותר (עד 2 משפטים קצרים בלבד!), עם המון מוטיבציה וסלנג כושר ישראלי (אחי, יאללה, תן בראש, סט מטורף, להתאבד על המוט, אל תתקרר).`;
+          
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] })
+          });
+          
+          const data = await response.json();
+          if (data.error) throw new Error(data.error.message);
+          
+          const reply = data.candidates[0].content.parts[0].text;
+          setCoachText(reply);
+          speakResponse(reply);
+        } catch (error) {
+          setCoachText("קרסה לי הלוגיקה, אחי. תבדוק שהמפתח שלך עובד ושאתה מחובר לאינטרנט.");
+        }
+      };
+
+      const speakResponse = (text) => {
+        window.speechSynthesis.cancel(); 
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'he-IL';
+        window.speechSynthesis.speak(utterance);
+      };
+    
+      const finishSet = () => {
+        setShowCamera(false); 
+        setCoachText('לחץ על המיקרופון ודבר איתי, אני איתך במנוחה!');
+        setUserSpeech('');
+        window.speechSynthesis.cancel(); 
+
+        const currentEx = plan[exIdx];
+        if(!currentEx) return;
+        if (setIdx+1 < currentEx.sets) { setSetIdx(s=>s+1); setTimer(restTime); setResting(true); }
+        else if (exIdx+1 < plan.length) { setExIdx(i=>i+1); setSetIdx(0); setTimer(restTime); setResting(true); }
+        else setDone(true);
+      };
+    
+      if (done) {
+        const totalWorkouts = parseInt(workoutCount) || 0;
+        const nextMilestone = (Math.floor(totalWorkouts / 3) + 1) * 3;
+        const workoutsToNext = nextMilestone - totalWorkouts - 1; // -1 כי האימון הנוכחי עוד לא נספר
+        
+        return (
+        <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+          <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 ${th.bgPrimary} rounded-full opacity-10 blur-[100px] pointer-events-none`}/>
+          <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
+            <div className={`w-28 h-28 mb-8 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-6xl shadow-2xl ${th.shadowPrimary}`}>🏆</div>
+            <h2 className="text-5xl font-black text-white mb-2">כל הכבוד!</h2>
+            <p className="text-zinc-400 mb-8 text-lg">אימון מותאם אישית הושלם.</p>
+            <div className="w-full bg-zinc-900 rounded-3xl p-6 border border-zinc-800 mb-4 space-y-4 shadow-xl">
+               <div className="flex justify-between items-center"><span className="text-zinc-400">תרגילים</span><span className="font-black text-white text-xl">{plan.length}</span></div>
+               <div className="flex justify-between items-center"><span className="text-zinc-400">סטים</span><span className="font-black text-white text-xl">{plan.reduce((a,b)=>a+(b.sets||3),0)}</span></div>
+               <div className="flex justify-between items-center pt-3 border-t border-zinc-800"><span className="text-zinc-400 font-bold">XP נצבר</span><span className={`font-black ${th.textPrimary} text-xl`}>+100 {th.emoji}</span></div>
+            </div>
+            <div className={`w-full ${th.bgPrimary10} border ${th.borderPrimary30} rounded-2xl p-4 mb-8`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-xs font-black ${th.textPrimary} uppercase tracking-widest`}>📈 עלייה בעוצמה</span>
+                <span className="text-xs text-zinc-400 font-bold">שלב {Math.floor(totalWorkouts / 3)}</span>
+              </div>
+              <p className="text-zinc-300 text-sm leading-relaxed">
+                {workoutsToNext <= 0 
+                  ? `🔥 האימון הבא שלך יהיה קשה יותר! חזרות, משקלים וזמנים עולים.`
+                  : `עוד ${workoutsToNext} ${workoutsToNext === 1 ? 'אימון' : 'אימונים'} עד העלאת עוצמה אוטומטית.`
+                }
+              </p>
+            </div>
+            <button onClick={onFinish} className="w-full bg-white text-black font-black py-5 rounded-2xl text-xl active:scale-95 transition-transform">סיום אימון</button>
+          </div>
+        </div>
+      );}
+      
+      if (resting) return (
+        <div className="min-h-screen bg-black flex flex-col items-center justify-between p-6 text-center relative overflow-hidden">
+          <div className={`absolute inset-0 ${th.bgPrimary10} animate-pulse pointer-events-none`}></div>
+          
+          <div className="w-full max-w-sm flex flex-col items-center mt-4">
+            <div className={`text-xs font-bold ${th.textPrimary} uppercase tracking-widest mb-2 ${th.bgPrimary10} px-4 py-2 rounded-full border ${th.borderPrimary30} relative z-10`}>
+              זמן התאוששות - {ex?.name}
+            </div>
+            <div className="text-8xl font-black text-white leading-none tabular-nums relative z-10 drop-shadow-2xl">{timer}</div>
+            <p className="text-zinc-500 font-bold uppercase mt-1 tracking-widest text-xs relative z-10">שניות נותרו לסט הבא</p>
+          </div>
+
+          <div className="w-full max-w-sm bg-zinc-900/90 backdrop-blur-md border border-zinc-800 rounded-3xl p-5 my-4 relative z-10 shadow-2xl text-right">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="relative flex h-2 w-2">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isListening ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${isListening ? 'bg-red-500' : 'bg-green-500'}`}></span>
+              </span>
+              <span className="text-xs font-black text-zinc-400 uppercase tracking-widest">המאמן האישי שלך:</span>
+            </div>
+            <p className="text-white font-bold text-sm leading-relaxed min-h-[50px]">{coachText}</p>
+            
+            {userSpeech && (
+              <div className="mt-3 pt-3 border-t border-zinc-800 text-left">
+                <span className="text-[11px] text-zinc-500 block">מה שאתה אמרת:</span>
+                <p className="text-zinc-400 italic text-xs">"{userSpeech}"</p>
+              </div>
+            )}
+          </div>
+
+          <div className="w-full max-w-sm flex flex-col items-center gap-4 mb-4 relative z-10">
+            <button 
+              onClick={startSpeechRecognition}
+              className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl transition-all shadow-2xl active:scale-90
+                ${isListening ? 'bg-red-500 animate-bounce shadow-red-500/50' : th.bgPrimary}
+              `} style={!isListening ? {boxShadow: `0 10px 25px -5px ${th.hex}66`} : {}}>
+              {isListening ? '🎤' : '💬'}
+            </button>
+            <span className="text-zinc-400 text-xs font-bold animate-pulse">
+              {isListening ? 'הקואוץ׳ מקשיב לך... דבר!' : 'לחץ על הכפתור כדי לדבר עם המאמן'}
+            </span>
+          </div>
+        </div>
+      );
+    
+      return (
+        <div className="min-h-screen p-6 flex flex-col justify-between bg-black relative overflow-hidden">
+          <div className={`absolute -top-32 -right-32 w-96 h-96 ${th.bgPrimary} rounded-full opacity-10 blur-[120px] pointer-events-none`}/>
+          <div className="flex justify-between items-center mb-8 relative z-10"><span className="text-zinc-500 font-bold text-sm uppercase tracking-widest">תרגיל {exIdx+1} / {plan.length}</span><span className={`${th.textPrimary} font-bold text-sm uppercase tracking-widest`}>סט {setIdx+1} / {ex?.sets || 3}</span></div>
+          <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden">
+               <div className={`absolute top-0 left-0 w-full h-1 ${th.gradientBg}`}></div>
+               {ex?.isMastered && (<div className={`inline-flex items-center gap-1.5 ${th.bgPrimary10} ${th.textPrimary} border ${th.borderPrimary20} px-3 py-1.5 rounded-full text-xs font-bold mb-4`}>{th.emoji} תרגיל מותאם אישית</div>)}
+               <h2 className="text-4xl font-black text-white mb-2">{ex?.name}</h2>
+               <div className="text-sm text-zinc-400 mb-6">{ex?.target === 'core' ? 'שרירי ליבה' : ex?.target === 'push' ? 'דחיפה' : ex?.target === 'pull' ? 'משיכה' : 'רגליים'}</div>
+               
+               {isTimeBased ? (
+                 <div className="flex flex-col items-center">
+                    <div className={`text-8xl font-black tabular-nums leading-none ${exTimerActive && exTimeLeft > 0 ? th.textPrimary : 'text-white'}`}>{exTimeLeft}</div>
+                    <div className="text-zinc-500 font-bold uppercase tracking-widest text-sm mt-3 mb-4">שניות</div>
+                    {!exTimerActive && exTimeLeft === targetTime && (<button onClick={()=>setExTimerActive(true)} className={`mt-2 w-full ${th.gradientBg} text-white font-black py-4 rounded-xl shadow-lg active:scale-95 transition-transform`}>הפעל טיימר</button>)}
+                 </div>
+               ) : (
+                 <>
+                   <div className={`text-8xl font-black tabular-nums leading-none ${th.textPrimary} drop-shadow-lg`}>{ex?.reps}</div>
+                   <div className="text-zinc-500 font-bold uppercase tracking-widest text-sm mt-3 mb-4">חזרות</div>
+                 </>
+               )}
+               {ex?.weightText && (
+                 <div className={`text-xl font-black mt-4 p-3 rounded-xl border ${th.borderPrimary30} ${th.bgPrimary10} ${th.textPrimaryLight}`}>
+                   משקל מומלץ: {ex.weightText}
+                 </div>
+               )}
+
+               {!isTimeBased && (
+                 <div className="w-full mt-4">
+                   {!showCamera ? (
+                     <button onClick={() => setShowCamera(true)} className={`w-full py-3 rounded-xl font-bold text-sm bg-zinc-800 text-white hover:bg-zinc-700 transition-colors border border-zinc-700 flex items-center justify-center gap-2`}>
+                       📷 הפעל מצלמה ופידבק תנועה
+                     </button>
+                   ) : (
+                     <AiCoach currentExerciseName={ex?.name} th={th} />
+                   )}
+                 </div>
+               )}
+            </div>
+          </div>
+          
+          <div className="relative z-10 mt-6">
+            <button onClick={finishSet} disabled={isTimeBased && exTimerActive && exTimeLeft > 0} className={`w-full ${isTimeBased && exTimerActive && exTimeLeft > 0 ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-white text-black hover:scale-[1.02]'} py-5 rounded-2xl font-black text-xl mb-4 transition-all shadow-xl flex justify-center items-center gap-2`}>
+              {isTimeBased && exTimerActive && exTimeLeft > 0 ? 'המתן לסיום הטיימר...' : 'סיימתי את הסט ✓'}
+            </button>
+            <button onClick={onExit} className="w-full text-zinc-600 font-bold text-sm uppercase tracking-widest hover:text-white transition-colors">יציאה מהאימון</button>
+          </div>
+        </div>
+      );
+    }
+    
+    function SkillTree({ mastered, unlockedTier, toggle, onPassTest, showToast, isHybrid, th, caliTiersBase, gymTiersBase, answers }) {
+      const [selSkill, setSelSkill] = useState(null);
+      const [testModalTier, setTestModalTier] = useState(null);
+      const [activeTree, setActiveTree] = useState('cali'); 
+
+      const currentTiersBase = activeTree === 'cali' ? caliTiersBase : gymTiersBase;
+      const treeTheme = activeTree === 'cali' ? getTheme('קליסטניקס (משקל גוף)') : getTheme('חדר כושר (משקולות)');
+
+      const weight = parseInt(answers.weight) || 70;
+      const height = parseInt(answers.height) || 170;
+      const bmi = (weight / Math.pow(height/100, 2)).toFixed(1);
+      const age = parseInt(answers.age) || 25;
+      const needsAdaptation = parseFloat(bmi) > 26 || age > 45;
+
+      const maxLevelInTiers = currentTiersBase.length > 0 ? currentTiersBase[currentTiersBase.length - 1].level : 1;
+
+      return (
+        <div className="p-6 pt-8 bg-black min-h-screen pb-32">
+          <h1 className="text-4xl font-black text-white mb-2">Fitai Tiers</h1>
+          
+          <div className="bg-zinc-900 rounded-3xl p-5 mb-6 border border-zinc-800 shadow-lg">
+             <div className={`text-xs font-bold ${th.textPrimary} uppercase tracking-widest mb-3`}>מנוע התאמה אישית פעיל 🧠</div>
+             <div className="grid grid-cols-2 gap-4 text-sm text-zinc-300">
+                <div>
+                   <span className="text-zinc-500 block mb-1">רמת כוח התחלתית</span>
+                   <span className="font-bold text-white bg-zinc-800 px-2 py-1 rounded">
+                      רמה {unlockedTier}
+                   </span>
+                </div>
+                <div>
+                   <span className="text-zinc-500 block mb-1">התאמות פיזיות</span>
+                   <span className={`font-bold px-2 py-1 rounded ${needsAdaptation ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'}`}>
+                      {needsAdaptation ? 'מגן מפרקים' : 'עצימות רגילה'}
+                   </span>
+                </div>
+             </div>
+          </div>
+          
+          {isHybrid && (
+            <div className="flex bg-zinc-900 rounded-full p-1 mb-6 border border-zinc-800 shadow-inner">
+              <button onClick={() => setActiveTree('cali')} className={`flex-1 py-3 rounded-full font-black text-sm transition-all ${activeTree==='cali'?'bg-orange-500 text-white shadow-lg':'text-zinc-500 hover:text-zinc-300'}`}>קליסטניקס 🔥</button>
+              <button onClick={() => setActiveTree('gym')} className={`flex-1 py-3 rounded-full font-black text-sm transition-all ${activeTree==='gym'?'bg-blue-500 text-white shadow-lg':'text-zinc-500 hover:text-zinc-300'}`}>חדר כושר ⚡</button>
+            </div>
+          )}
+
+          <div className="space-y-8">
+            {currentTiersBase.map((tier) => {
+              const isUnlocked = tier.level <= unlockedTier;
+              const isCurrentTest = tier.level === unlockedTier && tier.level < maxLevelInTiers;
+              
+              const masteredInTier = tier.skills.filter(sk => mastered.includes(sk.id)).length;
+              const neededForTest = tier.skills.length > 5 ? 5 - masteredInTier : tier.skills.length - masteredInTier;
+              const canTakeTest = neededForTest <= 0;
+              
+              return (
+                <div key={tier.level} className={`border rounded-3xl p-5 transition-all ${isUnlocked ? `${treeTheme.borderPrimary30} bg-zinc-900/50` : 'border-zinc-800 bg-zinc-950 opacity-60'}`}>
+                  <div className="flex justify-between items-center mb-4 pb-4 border-b border-zinc-800/50">
+                    <div className="text-right flex-1">
+                      <div className="flex items-center justify-end gap-2 mb-1"><h3 className="text-2xl font-black text-white">{tier.name}</h3>{!isUnlocked && <Lock className="w-5 h-5 text-zinc-500" />}</div>
+                      <span className="text-xs text-zinc-500 block">{tier.skills.length} תרגילים ברמה זו</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 mb-5 direction-rtl">
+                    {tier.skills.map(sk => {
+                      const mast = mastered.includes(sk.id);
+                      return (
+                        <button key={sk.id} 
+                          onClick={() => {
+                            if (!isUnlocked) { showToast('🔒 הטיר הזה עדיין נעול!'); return; }
+                            setSelSkill({ ...sk, theme: treeTheme });
+                          }}
+                          className={`aspect-square rounded-2xl flex flex-col items-center justify-center p-2 text-center border-2 transition-all
+                            ${mast ? `${treeTheme.bgPrimary} ${treeTheme.borderPrimary} text-white shadow-lg ${treeTheme.shadowPrimary}` : 
+                              isUnlocked ? `bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500` : 
+                              'bg-zinc-900 border-zinc-800 text-zinc-600'}
+                          `}>
+                          <span className="text-xs font-bold leading-tight">{sk.name}</span>
+                          {mast && <span className="mt-1 text-xs">✓</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {isCurrentTest && (
+                     <div className="mt-2">
+                       {canTakeTest ? (
+                         <button onClick={() => setTestModalTier({...tier, theme: treeTheme})}
+                           className={`w-full ${treeTheme.gradientBg} text-white font-black py-3 rounded-xl shadow-lg active:scale-95 transition-transform flex justify-center items-center gap-2`}>
+                           <span>{treeTheme.emoji} פתוח: לחץ כאן למעבר שלב</span>
+                         </button>
+                       ) : (
+                         <div className="w-full bg-zinc-800/50 border border-zinc-700/50 text-zinc-500 font-bold py-3 rounded-xl text-center text-sm flex flex-col gap-1 items-center justify-center">
+                           <span>🔒 מבחן מעבר נעול</span>
+                           <span className="text-xs font-normal">סמן עוד {neededForTest} תרגילים כדי לגשת.</span>
+                         </div>
+                       )}
+                     </div>
+                  )}
+                  {tier.level < unlockedTier && (<div className="w-full bg-zinc-800 text-green-400 font-bold py-2 rounded-xl text-center text-sm">✓ מבחן הטיר הושלם</div>)}
+                  {tier.level === maxLevelInTiers && (<div className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 text-white font-black py-2 rounded-xl text-center text-sm shadow-lg">👑 מאסטר עליון - הגעת לסוף העץ!</div>)}
+                </div>
+              );
+            })}
+          </div>
+
+          {selSkill && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={()=>setSelSkill(null)}>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90vh]" onClick={e=>e.stopPropagation()}>
+                <div className="flex justify-between items-start mb-4">
+                  <button onClick={()=>setSelSkill(null)} className="text-zinc-500 hover:text-white text-xl">✕</button>
+                  <div className="text-right"><div className={`text-xs ${selSkill.theme.textPrimary} font-bold uppercase mb-1`}>מידע טכני מפורט</div><h3 className="text-2xl font-black text-white">{selSkill.name}</h3></div>
+                </div>
+                <MuscleMan target={selSkill.target} th={selSkill.theme} />
+                <div className="bg-black rounded-xl p-5 border border-zinc-800 mb-6 text-right"><p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{selSkill.desc}</p></div>
+                <button onClick={()=>{
+                     toggle(selSkill.id); setSelSkill(null);
+                }} className={`w-full font-black py-4 rounded-2xl transition-all shadow-xl active:scale-95 ${mastered.includes(selSkill.id) ? 'bg-zinc-800 text-white hover:bg-zinc-700' : `${selSkill.theme.bgPrimary} text-white`}`}>
+                  {mastered.includes(selSkill.id) ? 'הסר מאימונים עתידיים' : '✓ סמנתי (יכנס לאימון הבא)'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {testModalTier && (
+            <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={()=>setTestModalTier(null)}>
+               <div className={`bg-zinc-900 border-2 ${testModalTier.theme.borderPrimary50} rounded-3xl p-7 max-w-md w-full text-right`} onClick={e=>e.stopPropagation()}>
+                  <div className="text-center mb-6"><div className="text-6xl mb-4">⚠️</div><h2 className="text-3xl font-black text-white">מבחן מעבר טיר</h2><p className="text-zinc-400 text-sm mt-2">כדי לפתוח את הרמה הבאה, עליך להשלים את האתגר הבא ברצף או באימון אחד:</p></div>
+                  <div className="bg-black rounded-2xl p-5 border border-zinc-800 mb-8"><p className={`${testModalTier.theme.textPrimary} font-bold text-lg text-center`}>{testModalTier.testDesc}</p></div>
+                  <button onClick={() => { onPassTest(testModalTier.level); setTestModalTier(null); }} className={`w-full ${testModalTier.theme.gradientBg} text-white font-black py-4 rounded-2xl text-lg mb-3 shadow-lg ${testModalTier.theme.shadowPrimary40} active:scale-95 transition-all`}>השלמתי את המבחן בהצלחה!</button>
+                  <button onClick={()=>setTestModalTier(null)} className="w-full text-zinc-500 font-bold py-3 hover:text-white transition-colors">עדיין לא מוכן</button>
+               </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function NutritionView({ answers, onMealTrack, lastMealTrack, th }) {
+      const [mood, setMood] = useState('training');
+      const [refresh, setRefresh] = useState(0);
+      const [expandedRecipe, setExpandedRecipe] = useState(null);
+      
+      const tdee = useMemo(()=>calcTDEE(answers.weight,answers.height,answers.age,answers.gender,answers.goal),[answers]);
+      
+      const algSet = new Set((answers.allergies||[]).map(a=>ALLERGY_MAP[a]).filter(Boolean));
+      const noAlg = !(answers.allergies||[]).length || (answers.allergies||[]).indexOf('ללא')>=0;
+      const dislikesArr = (answers.dislikes || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      
+      const getMeal = (t) => {
+        let opts = (getDynamicMeals(tdee, mood)[t] || []).filter(m => noAlg || !(m.tags||[]).some(x=>algSet.has(x)));
+        if (dislikesArr.length > 0 && opts.length > 0) {
+          const tempOpts = opts.filter(m => {
+            const ingsStr = typeof m.ings === 'function' ? m.ings(tdee).toLowerCase() : "";
+            const nameLower = m.name.toLowerCase();
+            return !dislikesArr.some(d => ingsStr.includes(d) || nameLower.includes(d));
+          });
+          if (tempOpts.length > 0) opts = tempOpts;
+        }
+        
+        if (!opts || opts.length === 0) return {name:'אין ארוחה מתאימה', ings:()=>'נסה לשחרר מגבלות או אלרגיות בשאלון.', multi:0, recipe:''};
+        const offset = t === 'morning' ? 0 : t === 'lunch' ? 1 : 2;
+        return opts[(refresh + offset) % opts.length] || {name:'אין ארוחה מתאימה', ings:()=>'נסה לשנות את ההגדרות בשאלון.', multi:0, recipe:''};
+      };
+
+      const age = answers.age || 25;
+      const isUnderage = age < 16;
+      const todayStr = new Date().toDateString();
+      const alreadyTrackedToday = lastMealTrack === todayStr;
+
+      return (
+        <div className="p-6 pt-8 pb-32">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-4xl font-black text-white">תזונה חכמה</h1>
+            <div className="text-left">
+              <span className={`block text-xs ${th.textPrimary} font-bold uppercase tracking-widest`}>צריכה יומית</span>
+              <span className="text-xl font-black text-white">{tdee} <span className="text-sm font-normal text-zinc-400">קק"ל</span></span>
+            </div>
+          </div>
+          
+          <button onClick={onMealTrack} disabled={alreadyTrackedToday} className={`w-full py-4 rounded-2xl font-black text-lg mb-6 shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 ${alreadyTrackedToday ? 'bg-zinc-800 text-green-400 border border-green-500/30' : `${th.bgPrimary} text-white`}`}>
+             {alreadyTrackedToday ? '✓ סומן להיום - יפה מאוד!' : '🍽️ לחץ כאן אם אכלת לפי התפריט היום'}
+          </button>
+          
+          {isUnderage && (
+            <div className={`${th.bgPrimary10} border ${th.borderPrimary30} rounded-xl p-4 mb-6`}>
+              <div className={`${th.textPrimary} font-bold text-sm mb-1`}>⚠️ שים לב:</div>
+              <div className="text-zinc-300 text-xs leading-relaxed">מכיוון שאתה בן {age}, הגוף שלך עדיין בשלבי גדילה. מנוע Fitai חוסם גרעון קלורי קיצוני ומכוון לבנייה.</div>
+            </div>
+          )}
+
+          <div className="flex gap-3 mb-6 overflow-x-auto pb-1">
+            {[['training',`${th.emoji} מתאמן`,`${th.bgPrimary600}`],['rest','🧘 מנוחה','bg-green-700'],['sick','🤒 חולה','bg-zinc-700']].map(([k,lb,cl])=>(
+              <button key={k} onClick={()=>setMood(k)} className={`px-5 py-2.5 rounded-full whitespace-nowrap font-bold text-sm transition-all ${mood===k?`${cl} text-white scale-105 shadow-lg`:'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}>{lb}</button>
+            ))}
+          </div>
+          
+          <button onClick={()=>setRefresh(r=>r+1)} className={`w-full bg-zinc-900 border border-zinc-700 p-4 rounded-2xl mb-6 font-black ${th.textPrimary} active:scale-95 transition-transform flex justify-center items-center gap-3`}>🔄 ערבב תפריט אישי</button>
+          
+          {['morning','lunch','evening'].map(t => {
+            const meal = getMeal(t);
+            const lb = t==='morning' ? 'ארוחת בוקר' : t==='lunch' ? 'ארוחת צהריים' : 'ארוחת ערב';
+            const kcal = Math.round(tdee * (meal.multi || 0));
+            const ingredientsText = typeof meal.ings === 'function' ? meal.ings(tdee) : meal.ings;
+            
+            return (
+              <div key={t} className="bg-zinc-900 p-6 rounded-3xl border border-zinc-800 mb-5 relative overflow-hidden">
+                <div className={`absolute top-0 right-0 w-1.5 h-full ${th.gradientBg}`}/>
+                <div className="flex justify-between items-start mb-2">
+                   <div className="text-xs font-black text-zinc-500 uppercase tracking-widest">{lb}</div>
+                   <div className="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400 font-bold">~{kcal} קק״ל</div>
+                </div>
+                <h3 className="text-2xl font-black text-white mb-4">{meal.name}</h3>
+                
+                <div className="bg-black/50 p-4 rounded-xl border border-zinc-800 text-sm text-zinc-300 mb-3">
+                  <div className="leading-relaxed">{ingredientsText}</div>
+                </div>
+
+                {meal.recipe && (
+                  <button onClick={() => setExpandedRecipe(expandedRecipe === meal.name ? null : meal.name)} className={`w-full text-center text-xs font-bold ${th.textPrimary} hover:text-white transition-colors`}>
+                    {expandedRecipe === meal.name ? 'הסתר מתכון' : '📖 הצג מתכון מלא'}
+                  </button>
+                )}
+
+                {expandedRecipe === meal.name && meal.recipe && (
+                  <div className="mt-3 p-4 bg-zinc-950 rounded-xl border border-zinc-800 text-xs text-zinc-400 whitespace-pre-wrap text-right leading-relaxed">
+                    {meal.recipe}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+    
+    function NotificationsView({ answers, notifEnabled, onToggle, onToggleAll, onTest, th }) {
+      const isWorkoutToday = answers.days && answers.days.indexOf(DAYS_HE[new Date().getDay()])>=0;
+      const goal = answers.goal && answers.goal.indexOf('ירידה')>=0 ? 'חיטוב' : 'מסה';
+      const name = answers.name || 'Lupu';
+      const allOn = NOTIF_SLOTS.every(s => notifEnabled[s.id] !== false);
+    
+      return (
+        <div className="p-6 pt-8 pb-32">
+          <h1 className="text-4xl font-black text-white mb-1">התראות דחיפה</h1>
+          <p className="text-zinc-400 text-sm mb-5">תזכורות נשלחות כהתראות דחיפה לדפדפן גם כשהאפליקציה פתוחה ברקע.</p>
+    
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-5 flex justify-between items-center">
+            <button onClick={onToggleAll} className={`w-12 h-6 rounded-full relative transition-all duration-300 ${allOn?th.bgPrimary:'bg-zinc-700'}`}>
+              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-300 ${allOn?'right-0.5':'left-0.5'}`}/>
+            </button>
+            <div className="text-right">
+              <div className="font-black text-white text-sm">הפעל / כבה הכל</div>
+              <div className="text-xs text-zinc-500">{NOTIF_SLOTS.filter(s=>notifEnabled[s.id]!==false).length} מתוך {NOTIF_SLOTS.length} פעילות</div>
+            </div>
+          </div>
+    
+          <div className="space-y-3">
+            {NOTIF_SLOTS.map(slot => {
+              const isOn = notifEnabled[slot.id] !== false;
+              const body = slot.bodyFn(isWorkoutToday, goal, name);
+              return (
+                <div key={slot.id} className={`bg-zinc-900 rounded-2xl border transition-all ${isOn?'border-zinc-700':'border-zinc-900'}`}>
+                  <div className="flex items-center gap-3 p-4">
+                    <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0 transition-all ${isOn?`${th.gradientBg} shadow-lg ${th.shadowPrimary30}`:'bg-zinc-800'}`}>{slot.icon}</div>
+                    <div className="flex-1 min-w-0 text-right">
+                      <div className="flex justify-between items-center mb-0.5">
+                        <span className={`text-xs font-bold tabular-nums ${isOn?th.textPrimary:'text-zinc-600'}`}>{String(slot.hour).padStart(2,'0')}:{String(slot.min).padStart(2,'0')}</span>
+                        <span className="font-bold text-white text-sm">{slot.title}</span>
+                      </div>
+                      <p className="text-xs text-zinc-500 leading-snug truncate">{body}</p>
+                    </div>
+                    <button onClick={()=>onToggle(slot.id, !isOn)} className={`w-11 h-6 rounded-full relative transition-all duration-300 flex-shrink-0 ${isOn?th.bgPrimary:'bg-zinc-700'}`}>
+                      <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-300 ${isOn?'right-0.5':'left-0.5'}`}/>
+                    </button>
+                  </div>
+                  {isOn && (
+                    <div className="px-4 pb-3"><button onClick={()=>onTest(slot)} className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold py-2 rounded-xl transition-colors active:scale-95">📬 שלח התראת ניסיון כעת</button></div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+    
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
